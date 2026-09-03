@@ -1,5 +1,5 @@
 -- =====================================================================
--- Migración 003 — Dejar los catálogos totalmente editables desde NEXU
+-- Migración 003 — Dejar los catálogos totalmente editables desde Nexus
 -- =====================================================================
 -- Antes, un editor solo podía AGREGAR requisitos/estándares nuevos, y
 -- los pilares del PESV no se podían crear, editar ni borrar desde la

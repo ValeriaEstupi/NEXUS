@@ -22,7 +22,7 @@ export default function Sidebar() {
   return (
     <nav className="sidebar">
       <div className="brand">
-        <span className="brand-mark">🛡️</span> NEXU
+        <span className="brand-mark">🛡️</span> Nexus
       </div>
       {LINKS.map((link) => {
         const active =

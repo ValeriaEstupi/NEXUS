@@ -1,4 +1,4 @@
-# NEXU — Plataforma de PESV y Sistema de Gestión Integrado
+# Nexus — Plataforma de PESV y Sistema de Gestión Integrado
 
 Plataforma para hacer seguimiento del **Plan Estratégico de Seguridad
 Vial (PESV)** y del **Sistema de Gestión de Seguridad y Salud en el
@@ -53,12 +53,12 @@ pasos en orden.
 > resoluciones — no es un texto legal certificado. Antes de usarla
 > para una auditoría o una inspección, contrástala contra el texto
 > vigente y ajusta lo que haga falta. Editar, agregar o desactivar un
-> ítem es una pantalla dentro de NEXU, no requiere volver a tocar SQL.
+> ítem es una pantalla dentro de Nexus, no requiere volver a tocar SQL.
 > Más detalle en [`docs/MARCO-NORMATIVO.md`](docs/MARCO-NORMATIVO.md).
 
 ---
 
-## Paso 1 — Crear un proyecto de Supabase para NEXU
+## Paso 1 — Crear un proyecto de Supabase para Nexus
 
 1. Entra a [supabase.com](https://supabase.com) y crea un proyecto
    nuevo (gratis).
@@ -138,7 +138,7 @@ Abre `http://localhost:3000`.
 
 ---
 
-## Roles dentro de NEXU
+## Roles dentro de Nexus
 
 - **Lectura**: ve todo el checklist, vehículos, conductores e
   indicadores, pero no puede editar nada. Sí puede reportar un
@@ -155,7 +155,7 @@ Abre `http://localhost:3000`.
 ### Qué puede hacer el administrador con el catálogo normativo
 
 Todo el catálogo del PESV y del SG-SST — no solo el seguimiento, sino
-el texto mismo de la norma que carga NEXU — se administra desde la
+el texto mismo de la norma que carga Nexus — se administra desde la
 pantalla, sin volver a tocar SQL:
 
 - **Pilares del PESV**: en la pantalla de PESV, botón "Gestionar
@@ -196,7 +196,7 @@ pantalla. Más detalle técnico en
 
 ---
 
-## ¿Ya tenías un proyecto de Supabase para NEXU antes de este cambio?
+## ¿Ya tenías un proyecto de Supabase para Nexus antes de este cambio?
 
 Si ya habías corrido `schema.sql` y `seed.sql` antes de que se
 agregara la edición completa del catálogo, solo te falta correr
