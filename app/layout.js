@@ -1,9 +1,9 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "NEXUS — PESV y SG-SST",
+  title: "NEXUS",
   description:
-    "Seguimiento del Plan Estratégico de Seguridad Vial (PESV) y del Sistema de Gestión de Seguridad y Salud en el Trabajo (SG-SST) para empresas de transporte especial.",
+    "Plataforma de cumplimiento normativo para empresas de transporte especial.",
 };
 
 export default function RootLayout({ children }) {
