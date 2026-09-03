@@ -288,6 +288,11 @@ begin
   select new_empresa.id, fase_id, componente, codigo, descripcion, puntaje, orden
   from public.estandares_sgsst_template;
 
+  -- Copiar los requisitos del Sistema de Gestión ISO (9001/14001/45001).
+  insert into public.requisitos_iso (empresa_id, norma_id, fase_id, codigo, descripcion, orden)
+  select new_empresa.id, norma_id, fase_id, codigo, descripcion, orden
+  from public.requisitos_iso_template;
+
   return new_empresa;
 end;
 $$;
@@ -309,7 +314,8 @@ create policy "Ver fases PHVA si estoy logueado"
 
 
 -- ---------------------------------------------------------------------
--- 4) PLANTILLA BASE del PESV y del SG-SST (catálogo global de partida)
+-- 4) PLANTILLA BASE del PESV, el SG-SST y el Sistema ISO (catálogo
+--    global de partida)
 -- ---------------------------------------------------------------------
 -- Estas tablas "_template" NO son las que usa cada empresa día a día
 -- — son el punto de partida que se copia (ver create_empresa() arriba)
@@ -342,9 +348,30 @@ create table public.estandares_sgsst_template (
   orden integer not null default 0
 );
 
+-- Catálogo global y fijo de normas ISO disponibles (igual para todas
+-- las empresas — a diferencia de los pilares/estándares, esto no se
+-- duplica por empresa).
+create table public.normas_iso (
+  id serial primary key,
+  codigo text not null unique,
+  nombre text not null,
+  orden integer not null
+);
+
+create table public.requisitos_iso_template (
+  id uuid primary key default gen_random_uuid(),
+  norma_id integer not null references public.normas_iso(id),
+  fase_id integer references public.fases_phva(id),
+  codigo text,
+  descripcion text not null,
+  orden integer not null default 0
+);
+
 alter table public.pilares_pesv_template enable row level security;
 alter table public.requisitos_pesv_template enable row level security;
 alter table public.estandares_sgsst_template enable row level security;
+alter table public.normas_iso enable row level security;
+alter table public.requisitos_iso_template enable row level security;
 
 create policy "Ver plantilla de pilares si estoy logueado"
   on public.pilares_pesv_template for select using (auth.uid() is not null);
@@ -352,6 +379,10 @@ create policy "Ver plantilla de requisitos si estoy logueado"
   on public.requisitos_pesv_template for select using (auth.uid() is not null);
 create policy "Ver plantilla de estándares si estoy logueado"
   on public.estandares_sgsst_template for select using (auth.uid() is not null);
+create policy "Ver normas ISO si estoy logueado"
+  on public.normas_iso for select using (auth.uid() is not null);
+create policy "Ver plantilla ISO si estoy logueado"
+  on public.requisitos_iso_template for select using (auth.uid() is not null);
 
 
 -- ---------------------------------------------------------------------
@@ -395,9 +426,24 @@ create table public.estandares_sgsst (
   created_at timestamptz not null default now()
 );
 
+-- Requisitos del Sistema de Gestión ISO (9001/14001/45001) de esta
+-- empresa — copia propia, igual que pilares/requisitos_pesv arriba.
+create table public.requisitos_iso (
+  id uuid primary key default gen_random_uuid(),
+  empresa_id uuid not null references public.empresas(id) on delete cascade,
+  norma_id integer not null references public.normas_iso(id),
+  fase_id integer references public.fases_phva(id),
+  codigo text,
+  descripcion text not null,
+  orden integer not null default 0,
+  activo boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
 alter table public.pilares_pesv enable row level security;
 alter table public.requisitos_pesv enable row level security;
 alter table public.estandares_sgsst enable row level security;
+alter table public.requisitos_iso enable row level security;
 
 create policy "Ver pilares de mis empresas"
   on public.pilares_pesv for select using (public.is_empresa_member(empresa_id));
@@ -426,6 +472,15 @@ create policy "Editar estándares SG-SST si soy editor de la empresa"
 create policy "Borrar estándares SG-SST si soy admin de la empresa"
   on public.estandares_sgsst for delete using (public.is_empresa_admin(empresa_id));
 
+create policy "Ver requisitos ISO de mis empresas"
+  on public.requisitos_iso for select using (public.is_empresa_member(empresa_id));
+create policy "Crear requisitos ISO si soy editor de la empresa"
+  on public.requisitos_iso for insert with check (public.is_empresa_editor(empresa_id));
+create policy "Editar requisitos ISO si soy editor de la empresa"
+  on public.requisitos_iso for update using (public.is_empresa_editor(empresa_id));
+create policy "Borrar requisitos ISO si soy admin de la empresa"
+  on public.requisitos_iso for delete using (public.is_empresa_admin(empresa_id));
+
 
 -- ---------------------------------------------------------------------
 -- 6) SEGUIMIENTO DE CUMPLIMIENTO (por empresa)
@@ -433,9 +488,10 @@ create policy "Borrar estándares SG-SST si soy admin de la empresa"
 create table public.cumplimiento_items (
   id uuid primary key default gen_random_uuid(),
   empresa_id uuid not null references public.empresas(id) on delete cascade,
-  tipo text not null check (tipo in ('pesv', 'sgsst')),
+  tipo text not null check (tipo in ('pesv', 'sgsst', 'iso')),
   requisito_pesv_id uuid references public.requisitos_pesv(id) on delete cascade,
   estandar_sgsst_id uuid references public.estandares_sgsst(id) on delete cascade,
+  requisito_iso_id uuid references public.requisitos_iso(id) on delete cascade,
   estado text not null default 'pendiente'
     check (estado in ('pendiente', 'en_progreso', 'cumplido', 'no_aplica')),
   responsable_id uuid references public.profiles(id),
@@ -444,12 +500,15 @@ create table public.cumplimiento_items (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint chk_referencia_unica check (
-    (tipo = 'pesv' and requisito_pesv_id is not null and estandar_sgsst_id is null)
+    (tipo = 'pesv' and requisito_pesv_id is not null and estandar_sgsst_id is null and requisito_iso_id is null)
     or
-    (tipo = 'sgsst' and estandar_sgsst_id is not null and requisito_pesv_id is null)
+    (tipo = 'sgsst' and estandar_sgsst_id is not null and requisito_pesv_id is null and requisito_iso_id is null)
+    or
+    (tipo = 'iso' and requisito_iso_id is not null and requisito_pesv_id is null and estandar_sgsst_id is null)
   ),
   unique (requisito_pesv_id),
-  unique (estandar_sgsst_id)
+  unique (estandar_sgsst_id),
+  unique (requisito_iso_id)
 );
 
 alter table public.cumplimiento_items enable row level security;
@@ -490,6 +549,19 @@ $$;
 create trigger trg_estandar_sgsst_insert
   after insert on public.estandares_sgsst
   for each row execute procedure public.crear_cumplimiento_sgsst();
+
+create or replace function public.crear_cumplimiento_iso()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  insert into public.cumplimiento_items (empresa_id, tipo, requisito_iso_id)
+  values (new.empresa_id, 'iso', new.id);
+  return new;
+end;
+$$;
+
+create trigger trg_requisito_iso_insert
+  after insert on public.requisitos_iso
+  for each row execute procedure public.crear_cumplimiento_iso();
 
 
 -- ---------------------------------------------------------------------

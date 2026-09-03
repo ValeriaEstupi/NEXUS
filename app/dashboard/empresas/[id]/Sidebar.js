@@ -11,6 +11,7 @@ export default function Sidebar({ empresaId, empresaNombre }) {
     { href: base, label: "Resumen", icon: "🏠" },
     { href: `${base}/pesv`, label: "PESV", icon: "🚦" },
     { href: `${base}/sgsst`, label: "SG-SST", icon: "🦺" },
+    { href: `${base}/iso`, label: "ISO 9001·14001·45001", icon: "🏅" },
     { href: `${base}/vehiculos`, label: "Vehículos", icon: "🚐" },
     { href: `${base}/conductores`, label: "Conductores", icon: "🪪" },
     { href: `${base}/capacitaciones`, label: "Capacitaciones", icon: "🎓" },

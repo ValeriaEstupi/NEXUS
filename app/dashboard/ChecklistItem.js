@@ -9,16 +9,26 @@ import {
   deleteRequisitoPesv,
   updateEstandarSgsst,
   deleteEstandarSgsst,
+  updateRequisitoIso,
+  deleteRequisitoIso,
 } from "@/app/lib/actions/cumplimiento";
 import { ESTADO_CUMPLIMIENTO_LABEL, formatFecha, estadoVencimiento } from "@/app/lib/helpers";
 
-// Una fila de checklist reutilizada tanto por PESV como por SG-SST:
-// muestra el requisito/estándar, su estado real de avance, quién
-// responde por él, la fecha límite y las evidencias adjuntas. Se
-// puede expandir para editar todo eso, subir documentos de soporte, y
-// (si tienes permiso) editar el propio texto del requisito/estándar o
-// borrarlo del catálogo.
-export default function ChecklistItem({ item, meta, profiles, pilares, fases, canEdit, canDelete, empresaId }) {
+// Qué acción de catálogo llamar según el tipo de ítem (PESV, SG-SST o
+// ISO), y cómo se llama ese ítem en los botones ("Editar requisito"
+// vs "Editar estándar").
+const CATALOG_FNS = {
+  pesv: { update: updateRequisitoPesv, delete: deleteRequisitoPesv, label: "requisito" },
+  sgsst: { update: updateEstandarSgsst, delete: deleteEstandarSgsst, label: "estándar" },
+  iso: { update: updateRequisitoIso, delete: deleteRequisitoIso, label: "requisito" },
+};
+
+// Una fila de checklist reutilizada por PESV, SG-SST e ISO: muestra el
+// requisito/estándar, su estado real de avance, quién responde por él,
+// la fecha límite y las evidencias adjuntas. Se puede expandir para
+// editar todo eso, subir documentos de soporte, y (si tienes permiso)
+// editar el propio texto del requisito/estándar o borrarlo del catálogo.
+export default function ChecklistItem({ item, meta, profiles, pilares, fases, normas, canEdit, canDelete, empresaId }) {
   const [open, setOpen] = useState(false);
   const [editingCatalog, setEditingCatalog] = useState(false);
   const [estado, setEstado] = useState(item.estado);
@@ -76,31 +86,29 @@ export default function ChecklistItem({ item, meta, profiles, pilares, fases, ca
       descripcion: formData.get("descripcion"),
       faseId: formData.get("fase_id") || null,
     };
-    let res;
     if (meta.tipo === "pesv") {
       updates.pilarId = formData.get("pilar_id");
       updates.fuenteNormativa = formData.get("fuente") || null;
-      res = await updateRequisitoPesv(meta.id, updates, empresaId);
-    } else {
+    } else if (meta.tipo === "sgsst") {
       updates.componente = formData.get("componente");
       updates.puntaje = formData.get("puntaje");
-      res = await updateEstandarSgsst(meta.id, updates, empresaId);
+    } else if (meta.tipo === "iso") {
+      updates.normaId = formData.get("norma_id");
     }
+    const res = await CATALOG_FNS[meta.tipo].update(meta.id, updates, empresaId);
     if (res?.error) setError(res.error);
     else setEditingCatalog(false);
   }
 
   async function handleToggleActivo() {
     setError(null);
-    const fn = meta.tipo === "pesv" ? updateRequisitoPesv : updateEstandarSgsst;
-    const res = await fn(meta.id, { activo: !meta.activo }, empresaId);
+    const res = await CATALOG_FNS[meta.tipo].update(meta.id, { activo: !meta.activo }, empresaId);
     if (res?.error) setError(res.error);
   }
 
   async function handleDeleteCatalog() {
     if (!confirm("¿Borrar este ítem del catálogo? También se borra su historial de seguimiento y evidencias.")) return;
-    const fn = meta.tipo === "pesv" ? deleteRequisitoPesv : deleteEstandarSgsst;
-    const res = await fn(meta.id, empresaId);
+    const res = await CATALOG_FNS[meta.tipo].delete(meta.id, empresaId);
     if (res?.error) setError(res.error);
   }
 
@@ -164,7 +172,7 @@ export default function ChecklistItem({ item, meta, profiles, pilares, fases, ca
               {canEdit && !editingCatalog && (
                 <div className="actions-row" style={{ marginBottom: 12 }}>
                   <button type="button" className="secondary" onClick={() => setEditingCatalog(true)}>
-                    ✏️ Editar {meta.tipo === "pesv" ? "requisito" : "estándar"}
+                    ✏️ Editar {CATALOG_FNS[meta.tipo].label}
                   </button>
                   <button type="button" className="secondary" onClick={handleToggleActivo}>
                     {meta.activo === false ? "Reactivar" : "Desactivar"}
@@ -183,7 +191,7 @@ export default function ChecklistItem({ item, meta, profiles, pilares, fases, ca
                     <label>Código</label>
                     <input name="codigo" defaultValue={meta.codigo || ""} />
                   </div>
-                  {meta.tipo === "pesv" ? (
+                  {meta.tipo === "pesv" && (
                     <div>
                       <label>Pilar</label>
                       <select name="pilar_id" defaultValue={meta.pilarId}>
@@ -192,10 +200,21 @@ export default function ChecklistItem({ item, meta, profiles, pilares, fases, ca
                         ))}
                       </select>
                     </div>
-                  ) : (
+                  )}
+                  {meta.tipo === "sgsst" && (
                     <div>
                       <label>Componente</label>
                       <input name="componente" defaultValue={meta.componente || ""} required />
+                    </div>
+                  )}
+                  {meta.tipo === "iso" && (
+                    <div>
+                      <label>Norma</label>
+                      <select name="norma_id" defaultValue={meta.normaId}>
+                        {normas.map((n) => (
+                          <option key={n.id} value={n.id}>{n.nombre}</option>
+                        ))}
+                      </select>
                     </div>
                   )}
                   <div style={{ maxWidth: 160 }}>

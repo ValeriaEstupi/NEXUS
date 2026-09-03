@@ -188,6 +188,102 @@ from (values
 ) as v(fase_nombre, componente, codigo, descripcion, puntaje, orden)
 join public.fases_phva f on f.nombre = v.fase_nombre;
 
+
+-- ---------------------------------------------------------------------
+-- Catálogo de normas ISO (Sistema de Gestión Integrado) y su plantilla
+-- de requisitos, basada en la Estructura de Alto Nivel (Anexo SL) que
+-- comparten ISO 9001:2015, ISO 14001:2015 e ISO 45001:2018.
+-- ---------------------------------------------------------------------
+insert into public.normas_iso (codigo, nombre, orden) values
+  ('9001', 'ISO 9001 — Gestión de la Calidad', 1),
+  ('14001', 'ISO 14001 — Gestión Ambiental', 2),
+  ('45001', 'ISO 45001 — Gestión de Seguridad y Salud en el Trabajo', 3);
+
+insert into public.requisitos_iso_template (norma_id, fase_id, codigo, descripcion, orden)
+select n.id, f.id, v.codigo, v.descripcion, v.orden
+from (values
+  -- ===== ISO 9001:2015 — Gestión de la Calidad =====
+  ('9001', 'Planear', '4.1', 'Comprensión de la organización y su contexto.', 1),
+  ('9001', 'Planear', '4.2', 'Comprensión de las necesidades y expectativas de las partes interesadas.', 2),
+  ('9001', 'Planear', '4.3', 'Determinación del alcance del sistema de gestión de la calidad.', 3),
+  ('9001', 'Planear', '4.4', 'Sistema de gestión de la calidad y sus procesos.', 4),
+  ('9001', 'Planear', '5.1', 'Liderazgo y compromiso de la alta dirección con el SGC.', 5),
+  ('9001', 'Planear', '5.2', 'Política de calidad establecida, documentada y comunicada.', 6),
+  ('9001', 'Planear', '5.3', 'Roles, responsabilidades y autoridades organizacionales asignados.', 7),
+  ('9001', 'Planear', '6.1', 'Acciones para abordar riesgos y oportunidades.', 8),
+  ('9001', 'Planear', '6.2', 'Objetivos de la calidad y planificación para lograrlos.', 9),
+  ('9001', 'Planear', '6.3', 'Planificación de los cambios al SGC.', 10),
+  ('9001', 'Hacer', '7.1', 'Recursos: personas, infraestructura, ambiente, seguimiento y medición.', 11),
+  ('9001', 'Hacer', '7.2', 'Competencia del personal que afecta el desempeño de la calidad.', 12),
+  ('9001', 'Hacer', '7.3', 'Toma de conciencia sobre la política y los objetivos de calidad.', 13),
+  ('9001', 'Hacer', '7.4', 'Comunicación interna y externa pertinente al SGC.', 14),
+  ('9001', 'Hacer', '7.5', 'Información documentada: control de documentos y registros.', 15),
+  ('9001', 'Hacer', '8.1', 'Planificación y control operacional.', 16),
+  ('9001', 'Hacer', '8.2', 'Requisitos para los servicios prestados y comunicación con el cliente.', 17),
+  ('9001', 'Hacer', '8.4', 'Control de los procesos, productos y servicios suministrados externamente.', 18),
+  ('9001', 'Hacer', '8.5', 'Producción y provisión del servicio bajo condiciones controladas.', 19),
+  ('9001', 'Hacer', '8.7', 'Control de las salidas (servicios) no conformes.', 20),
+  ('9001', 'Verificar', '9.1', 'Seguimiento, medición, análisis y evaluación (incluida satisfacción del cliente).', 21),
+  ('9001', 'Verificar', '9.2', 'Auditoría interna del SGC.', 22),
+  ('9001', 'Verificar', '9.3', 'Revisión del SGC por la alta dirección.', 23),
+  ('9001', 'Actuar', '10.2', 'No conformidad y acción correctiva.', 24),
+  ('9001', 'Actuar', '10.3', 'Mejora continua de la conveniencia, adecuación y eficacia del SGC.', 25),
+
+  -- ===== ISO 14001:2015 — Gestión Ambiental =====
+  ('14001', 'Planear', '4.1', 'Comprensión de la organización y su contexto ambiental.', 1),
+  ('14001', 'Planear', '4.2', 'Necesidades y expectativas de las partes interesadas (incluidos requisitos de cumplimiento).', 2),
+  ('14001', 'Planear', '4.3', 'Determinación del alcance del sistema de gestión ambiental.', 3),
+  ('14001', 'Planear', '4.4', 'Sistema de gestión ambiental y sus procesos.', 4),
+  ('14001', 'Planear', '5.1', 'Liderazgo y compromiso de la alta dirección con el SGA.', 5),
+  ('14001', 'Planear', '5.2', 'Política ambiental establecida, documentada y comunicada.', 6),
+  ('14001', 'Planear', '5.3', 'Roles, responsabilidades y autoridades organizacionales asignados.', 7),
+  ('14001', 'Planear', '6.1.2', 'Identificación de aspectos ambientales y sus impactos (incluida la operación de la flota).', 8),
+  ('14001', 'Planear', '6.1.3', 'Identificación y acceso a los requisitos legales ambientales aplicables.', 9),
+  ('14001', 'Planear', '6.1.4', 'Planificación de acciones para abordar aspectos, riesgos y requisitos legales.', 10),
+  ('14001', 'Planear', '6.2', 'Objetivos ambientales y planificación para lograrlos.', 11),
+  ('14001', 'Hacer', '7.1', 'Recursos para el sistema de gestión ambiental.', 12),
+  ('14001', 'Hacer', '7.2', 'Competencia del personal con impacto ambiental en su trabajo.', 13),
+  ('14001', 'Hacer', '7.3', 'Toma de conciencia sobre la política ambiental.', 14),
+  ('14001', 'Hacer', '7.4', 'Comunicación interna y externa pertinente al SGA.', 15),
+  ('14001', 'Hacer', '7.5', 'Información documentada del SGA.', 16),
+  ('14001', 'Hacer', '8.1', 'Planificación y control operacional (residuos, vertimientos, emisiones, consumo de combustible).', 17),
+  ('14001', 'Hacer', '8.2', 'Preparación y respuesta ante emergencias ambientales (derrames, incendios).', 18),
+  ('14001', 'Verificar', '9.1', 'Seguimiento, medición, análisis y evaluación del desempeño ambiental.', 19),
+  ('14001', 'Verificar', '9.2', 'Auditoría interna del SGA.', 20),
+  ('14001', 'Verificar', '9.3', 'Revisión del SGA por la alta dirección.', 21),
+  ('14001', 'Actuar', '10.2', 'No conformidad y acción correctiva.', 22),
+  ('14001', 'Actuar', '10.3', 'Mejora continua del desempeño ambiental.', 23),
+
+  -- ===== ISO 45001:2018 — Gestión de Seguridad y Salud en el Trabajo =====
+  ('45001', 'Planear', '4.1', 'Comprensión de la organización y su contexto en SST.', 1),
+  ('45001', 'Planear', '4.2', 'Necesidades y expectativas de los trabajadores y otras partes interesadas.', 2),
+  ('45001', 'Planear', '4.3', 'Determinación del alcance del sistema de gestión de SST.', 3),
+  ('45001', 'Planear', '4.4', 'Sistema de gestión de SST y sus procesos.', 4),
+  ('45001', 'Planear', '5.1', 'Liderazgo y compromiso de la alta dirección con la SST.', 5),
+  ('45001', 'Planear', '5.2', 'Política de SST establecida, documentada y comunicada.', 6),
+  ('45001', 'Planear', '5.3', 'Roles, responsabilidades y autoridades organizacionales asignados.', 7),
+  ('45001', 'Planear', '5.4', 'Consulta y participación de los trabajadores en el sistema de SST.', 8),
+  ('45001', 'Planear', '6.1.2', 'Identificación de peligros y evaluación de riesgos y oportunidades para la SST.', 9),
+  ('45001', 'Planear', '6.1.3', 'Determinación de los requisitos legales y otros requisitos de SST aplicables.', 10),
+  ('45001', 'Planear', '6.1.4', 'Planificación de acciones para abordar peligros, riesgos y requisitos legales.', 11),
+  ('45001', 'Planear', '6.2', 'Objetivos de SST y planificación para lograrlos.', 12),
+  ('45001', 'Hacer', '7.1', 'Recursos para el sistema de gestión de SST.', 13),
+  ('45001', 'Hacer', '7.2', 'Competencia del personal en materia de SST.', 14),
+  ('45001', 'Hacer', '7.3', 'Toma de conciencia sobre peligros, riesgos y la política de SST.', 15),
+  ('45001', 'Hacer', '7.4', 'Comunicación interna y externa pertinente a la SST.', 16),
+  ('45001', 'Hacer', '7.5', 'Información documentada del sistema de gestión de SST.', 17),
+  ('45001', 'Hacer', '8.1', 'Planificación y control operacional, aplicando la jerarquía de controles.', 18),
+  ('45001', 'Hacer', '8.1.2', 'Eliminación de peligros y reducción de los riesgos para la SST.', 19),
+  ('45001', 'Hacer', '8.2', 'Preparación y respuesta ante emergencias.', 20),
+  ('45001', 'Verificar', '9.1', 'Seguimiento, medición, análisis y evaluación del desempeño en SST.', 21),
+  ('45001', 'Verificar', '9.2', 'Auditoría interna del sistema de gestión de SST.', 22),
+  ('45001', 'Verificar', '9.3', 'Revisión del sistema de gestión de SST por la alta dirección.', 23),
+  ('45001', 'Actuar', '10.2', 'Investigación de incidentes, no conformidades y acciones correctivas.', 24),
+  ('45001', 'Actuar', '10.3', 'Mejora continua del desempeño en SST.', 25)
+) as v(norma_codigo, fase_nombre, codigo, descripcion, orden)
+join public.normas_iso n on n.codigo = v.norma_codigo
+join public.fases_phva f on f.nombre = v.fase_nombre;
+
 -- =====================================================================
 -- FIN DEL SEED — ya puedes crear tu primera empresa desde la app.
 -- =====================================================================

@@ -7,6 +7,7 @@ import { requireUser } from "./_shared";
 function revalidateEmpresa(empresaId) {
   revalidatePath(`/dashboard/empresas/${empresaId}/pesv`);
   revalidatePath(`/dashboard/empresas/${empresaId}/sgsst`);
+  revalidatePath(`/dashboard/empresas/${empresaId}/iso`);
   revalidatePath(`/dashboard/empresas/${empresaId}`);
 }
 
@@ -276,5 +277,77 @@ export async function deleteEvidencia(evidenciaId, rutaStorage, empresaId) {
   }
 
   if (empresaId) revalidateEmpresa(empresaId);
+  return { success: true };
+}
+
+// Agrega un requisito nuevo al catálogo ISO (9001/14001/45001) de una
+// empresa.
+export async function addRequisitoIso({ empresaId, normaId, faseId, codigo, descripcion }) {
+  const supabase = createClient();
+  await requireUser(supabase);
+
+  const cleanDescripcion = (descripcion || "").trim();
+  if (!cleanDescripcion) {
+    return { error: "Escribe la descripción del requisito." };
+  }
+  if (!normaId) {
+    return { error: "Selecciona la norma." };
+  }
+
+  const { error } = await supabase.from("requisitos_iso").insert({
+    empresa_id: empresaId,
+    norma_id: normaId,
+    fase_id: faseId || null,
+    codigo: codigo || null,
+    descripcion: cleanDescripcion,
+  });
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  revalidatePath(`/dashboard/empresas/${empresaId}/iso`);
+  return { success: true };
+}
+
+// Edita un requisito ya existente del catálogo ISO, o lo
+// activa/desactiva (en vez de borrarlo, para no perder el historial).
+export async function updateRequisitoIso(id, updates, empresaId) {
+  const supabase = createClient();
+  await requireUser(supabase);
+
+  const payload = {};
+  if (updates.normaId !== undefined) payload.norma_id = updates.normaId;
+  if (updates.faseId !== undefined) payload.fase_id = updates.faseId || null;
+  if (updates.codigo !== undefined) payload.codigo = updates.codigo || null;
+  if (updates.descripcion !== undefined) {
+    const clean = (updates.descripcion || "").trim();
+    if (!clean) return { error: "La descripción no puede quedar vacía." };
+    payload.descripcion = clean;
+  }
+  if (updates.activo !== undefined) payload.activo = updates.activo;
+
+  const { error } = await supabase.from("requisitos_iso").update(payload).eq("id", id);
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  if (empresaId) revalidatePath(`/dashboard/empresas/${empresaId}/iso`);
+  return { success: true };
+}
+
+// Borra un requisito del catálogo ISO. Solo admin de la empresa.
+export async function deleteRequisitoIso(id, empresaId) {
+  const supabase = createClient();
+  await requireUser(supabase);
+
+  const { error } = await supabase.from("requisitos_iso").delete().eq("id", id);
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  if (empresaId) revalidatePath(`/dashboard/empresas/${empresaId}/iso`);
   return { success: true };
 }

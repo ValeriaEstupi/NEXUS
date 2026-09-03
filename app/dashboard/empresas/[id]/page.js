@@ -17,6 +17,7 @@ export default async function EmpresaResumenPage({ params }) {
     { data: empresa },
     { data: requisitos },
     { data: estandares },
+    { data: requisitosIso },
     { count: totalVehiculos },
     { count: totalConductores },
     { data: vehiculos },
@@ -31,6 +32,10 @@ export default async function EmpresaResumenPage({ params }) {
     supabase
       .from("estandares_sgsst")
       .select("activo, puntaje, cumplimiento_items(estado)")
+      .eq("empresa_id", empresaId),
+    supabase
+      .from("requisitos_iso")
+      .select("activo, cumplimiento_items(estado)")
       .eq("empresa_id", empresaId),
     supabase.from("vehiculos").select("id", { count: "exact", head: true }).eq("empresa_id", empresaId),
     supabase.from("conductores").select("id", { count: "exact", head: true }).eq("empresa_id", empresaId),
@@ -57,6 +62,11 @@ export default async function EmpresaResumenPage({ params }) {
     .reduce((s, e) => s + Number(e.puntaje), 0);
   const avanceSgsstGlobal = puntajeAplicable > 0 ? Math.round((puntajeObtenido / puntajeAplicable) * 100) : 0;
 
+  const requisitosIsoActivos = (requisitosIso || []).filter((r) => r.activo);
+  const totalIso = requisitosIsoActivos.length;
+  const cumplidosIso = requisitosIsoActivos.filter((r) => r.cumplimiento_items?.[0]?.estado === "cumplido").length;
+  const avanceIsoGlobal = totalIso > 0 ? Math.round((cumplidosIso / totalIso) * 100) : 0;
+
   let alertasVencimiento = 0;
   for (const v of vehiculos || []) {
     if (["vencido", "por_vencer"].includes(estadoVencimiento(v.fecha_vencimiento_soat))) alertasVencimiento++;
@@ -72,7 +82,7 @@ export default async function EmpresaResumenPage({ params }) {
   return (
     <div className="page-body">
       <h1>{empresa?.razon_social}</h1>
-      <p className="page-intro">Resumen de cumplimiento del PESV y del SG-SST.</p>
+      <p className="page-intro">Resumen de cumplimiento del PESV, el SG-SST y el Sistema de Gestión ISO.</p>
 
       <div className="stat-grid">
         <Link href={`${base}/pesv`} className="stat-card" style={{ textDecoration: "none", color: "inherit" }}>
@@ -82,6 +92,10 @@ export default async function EmpresaResumenPage({ params }) {
         <Link href={`${base}/sgsst`} className="stat-card" style={{ textDecoration: "none", color: "inherit" }}>
           <div className="stat-label">Calificación SG-SST</div>
           <div className="stat-value">{avanceSgsstGlobal}%</div>
+        </Link>
+        <Link href={`${base}/iso`} className="stat-card" style={{ textDecoration: "none", color: "inherit" }}>
+          <div className="stat-label">Avance ISO 9001·14001·45001</div>
+          <div className="stat-value">{avanceIsoGlobal}%</div>
         </Link>
         <Link href={`${base}/vehiculos`} className="stat-card" style={{ textDecoration: "none", color: "inherit" }}>
           <div className="stat-label">Vehículos</div>
@@ -114,6 +128,7 @@ export default async function EmpresaResumenPage({ params }) {
         <div className="stat-grid">
           <Link href={`${base}/pesv`} className="button-like">Checklist PESV</Link>
           <Link href={`${base}/sgsst`} className="button-like">Checklist SG-SST</Link>
+          <Link href={`${base}/iso`} className="button-like">Checklist ISO</Link>
           <Link href={`${base}/incidentes`} className="button-like">Reportar incidente</Link>
           <Link href={`${base}/indicadores`} className="button-like">Ver indicadores</Link>
         </div>
