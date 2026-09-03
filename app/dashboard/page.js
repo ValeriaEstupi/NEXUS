@@ -42,7 +42,7 @@ export default async function DashboardHome() {
   return (
     <div className="page-body">
       <h1>Hola, {displayName} 👋</h1>
-      <p className="page-intro">Elige una empresa para ver su cumplimiento del PESV y del SG-SST.</p>
+      <p className="page-intro">Elige una empresa para ver su cumplimiento.</p>
 
       <section className="section-card">
         <h2>🏢 Tus empresas</h2>
