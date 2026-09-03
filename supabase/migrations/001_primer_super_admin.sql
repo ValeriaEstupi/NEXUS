@@ -1,5 +1,5 @@
 -- =====================================================================
--- Migración 001 — Convertir tu cuenta en "super admin" de Nexus
+-- Migración 001 — Convertir tu cuenta en "super admin" de NEXUS
 -- =====================================================================
 -- Corre esto DESPUÉS de haberte registrado al menos una vez en la app
 -- (Paso 5 del README). Cambia el correo de la línea de abajo por el

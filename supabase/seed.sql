@@ -13,7 +13,7 @@
 -- Transporte, la ARL o el Ministerio del Trabajo, el equipo legal/HSEQ
 -- debe contrastar cada ítem contra el texto vigente de la resolución y
 -- ajustar redacción, códigos y puntajes si hace falta. Todo esto se
--- edita libremente desde la pantalla de Nexus (no hay que tocar SQL de
+-- edita libremente desde la pantalla de NEXUS (no hay que tocar SQL de
 -- nuevo): agregar, editar o desactivar un requisito es una pantalla,
 -- no una migración.
 -- =====================================================================

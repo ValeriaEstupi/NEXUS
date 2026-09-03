@@ -25,7 +25,7 @@ export default async function ConfiguracionPage() {
     <div className="page-body">
       <h1>⚙️ Configuración</h1>
       <p className="page-intro">
-        Datos de la empresa y administración de usuarios de Nexus.
+        Datos de la empresa y administración de usuarios de NEXUS.
       </p>
 
       {empresa && <EmpresaForm empresa={empresa} canEdit={canEdit} />}

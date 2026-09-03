@@ -57,8 +57,8 @@ export default function LoginPage() {
   return (
     <div className="page-center">
       <div className="card">
-        <h1>🛡️ Nexus</h1>
-        <p className="subtitle">
+        <h1 style={{ textAlign: "center" }}>🛡️ NEXUS</h1>
+        <p className="subtitle" style={{ textAlign: "center" }}>
           {mode === "signin"
             ? "Seguimiento del PESV y del SG-SST. Entra con tu correo y contraseña."
             : "Registra tu cuenta para empezar a usar la plataforma."}

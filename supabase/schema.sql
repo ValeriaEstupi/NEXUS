@@ -1,10 +1,10 @@
 -- =====================================================================
--- ESQUEMA DE BASE DE DATOS — Nexus
+-- ESQUEMA DE BASE DE DATOS — NEXUS
 -- Plataforma de seguimiento del PESV y del Sistema de Gestión Integrado
 -- (SG-SST) para empresa de transporte especial
 -- =====================================================================
 -- Cómo usar este archivo:
--- 1. Entra a tu proyecto de Supabase EN BLANCO, creado solo para Nexus
+-- 1. Entra a tu proyecto de Supabase EN BLANCO, creado solo para NEXUS
 --    (no el mismo proyecto que usa la app de "tareas", si la tienes).
 -- 2. Ve al menú "SQL Editor" (icono de terminal, en la barra lateral).
 -- 3. Crea una consulta nueva, pega TODO este archivo y dale "Run".
@@ -21,7 +21,7 @@
 -- Supabase ya trae una tabla interna "auth.users" para el login
 -- (guarda el correo y la contraseña de forma segura). Nosotros creamos
 -- "profiles" para guardar datos públicos del usuario y su rol dentro
--- de Nexus:
+-- de NEXUS:
 --   - "lector": puede ver todo, pero no puede crear ni editar nada.
 --   - "editor": puede ver y editar el PESV, el SG-SST, vehículos,
 --     conductores, capacitaciones e incidentes.
@@ -70,7 +70,7 @@ $$;
 
 -- "¿Esta persona tiene sesión Y ya tiene fila en profiles?" — todas las
 -- tablas de datos de la empresa son visibles para cualquiera que haya
--- iniciado sesión (Nexus es una herramienta interna de una sola empresa,
+-- iniciado sesión (NEXUS es una herramienta interna de una sola empresa,
 -- no una app multi-cliente), pero nunca para alguien sin sesión.
 create or replace function public.is_registered()
 returns boolean
@@ -264,7 +264,7 @@ create policy "Borrar estándares SG-SST si soy super admin"
 
 
 -- ---------------------------------------------------------------------
--- 5) SEGUIMIENTO DE CUMPLIMIENTO (el corazón de Nexus)
+-- 5) SEGUIMIENTO DE CUMPLIMIENTO (el corazón de NEXUS)
 -- ---------------------------------------------------------------------
 -- Una fila por cada requisito PESV o estándar SG-SST, con su estado
 -- real de avance, responsable, fecha límite y observaciones. Se crea

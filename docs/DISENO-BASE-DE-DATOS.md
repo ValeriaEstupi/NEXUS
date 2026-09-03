@@ -1,11 +1,11 @@
-# Cómo está diseñada la base de datos de Nexus
+# Cómo está diseñada la base de datos de NEXUS
 
 Igual que en la app de tareas: piensa en la base de datos como un
 conjunto de "hojas de cálculo" (tablas) que se conectan entre sí.
 
 ## 1. `profiles` — personas y su rol
 Espejo de `auth.users` (que maneja Supabase) más el nombre y el rol de
-cada persona dentro de Nexus: `lector`, `editor` o `super_admin`. Se
+cada persona dentro de NEXUS: `lector`, `editor` o `super_admin`. Se
 llena sola cuando alguien se registra, con rol `lector` por defecto.
 
 ## 2. `empresa`
@@ -23,7 +23,7 @@ Catálogo editable de cada requisito del PESV y cada estándar del
 SG-SST, con su pilar/componente, su fase PHVA, un código, una
 descripción y (en el caso del SG-SST) el puntaje que aporta sobre 100.
 
-## 5. `cumplimiento_items` — el "cómo vamos" (el corazón de Nexus)
+## 5. `cumplimiento_items` — el "cómo vamos" (el corazón de NEXUS)
 Una fila por cada requisito o estándar, con el estado real de avance:
 `pendiente`, `en_progreso`, `cumplido` o `no_aplica`, más responsable,
 fecha límite y observaciones. **Se crea sola** (con un disparador de
@@ -63,7 +63,7 @@ estándar, como exige la Resolución 0312/2019). Se calculan solas a
 partir de `cumplimiento_items` — no hay que actualizarlas a mano.
 
 ## La privacidad de los datos, en una frase
-Nexus es una herramienta **interna de una sola empresa** (no
+NEXUS es una herramienta **interna de una sola empresa** (no
 multi-cliente): cualquier persona con sesión iniciada y perfil creado
 puede **ver** todos los datos, pero solo quien tiene rol `editor` o
 `super_admin` puede **crear o modificar** algo, y solo `super_admin`
