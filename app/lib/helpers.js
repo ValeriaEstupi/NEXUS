@@ -93,3 +93,9 @@ export const PLAN_ACCION_ESTADO_LABEL = {
   cumplido: "Cumplido",
   vencido: "Vencido",
 };
+
+export const EMPRESA_ROLE_LABEL = {
+  admin: "Admin de la empresa",
+  editor: "Editor",
+  lector: "Lectura",
+};

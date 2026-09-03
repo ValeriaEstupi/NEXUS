@@ -9,8 +9,8 @@ import {
   deleteRequisitoPesv,
   updateEstandarSgsst,
   deleteEstandarSgsst,
-} from "../lib/actions/cumplimiento";
-import { ESTADO_CUMPLIMIENTO_LABEL, formatFecha, estadoVencimiento } from "../lib/helpers";
+} from "@/app/lib/actions/cumplimiento";
+import { ESTADO_CUMPLIMIENTO_LABEL, formatFecha, estadoVencimiento } from "@/app/lib/helpers";
 
 // Una fila de checklist reutilizada tanto por PESV como por SG-SST:
 // muestra el requisito/estándar, su estado real de avance, quién
@@ -18,7 +18,7 @@ import { ESTADO_CUMPLIMIENTO_LABEL, formatFecha, estadoVencimiento } from "../li
 // puede expandir para editar todo eso, subir documentos de soporte, y
 // (si tienes permiso) editar el propio texto del requisito/estándar o
 // borrarlo del catálogo.
-export default function ChecklistItem({ item, meta, profiles, pilares, fases, canEdit, canDelete }) {
+export default function ChecklistItem({ item, meta, profiles, pilares, fases, canEdit, canDelete, empresaId }) {
   const [open, setOpen] = useState(false);
   const [editingCatalog, setEditingCatalog] = useState(false);
   const [estado, setEstado] = useState(item.estado);
@@ -31,18 +31,22 @@ export default function ChecklistItem({ item, meta, profiles, pilares, fases, ca
     setEstado(value);
     setError(null);
     startTransition(async () => {
-      const res = await updateCumplimientoItem(item.id, { estado: value });
+      const res = await updateCumplimientoItem(item.id, { estado: value }, empresaId);
       if (res?.error) setError(res.error);
     });
   }
 
   async function handleDetailsSubmit(formData) {
     setError(null);
-    const res = await updateCumplimientoItem(item.id, {
-      responsableId: formData.get("responsable_id") || null,
-      fechaLimite: formData.get("fecha_limite") || null,
-      observaciones: formData.get("observaciones") || null,
-    });
+    const res = await updateCumplimientoItem(
+      item.id,
+      {
+        responsableId: formData.get("responsable_id") || null,
+        fechaLimite: formData.get("fecha_limite") || null,
+        observaciones: formData.get("observaciones") || null,
+      },
+      empresaId
+    );
     if (res?.error) {
       setError(res.error);
     } else {
@@ -54,13 +58,14 @@ export default function ChecklistItem({ item, meta, profiles, pilares, fases, ca
   async function handleUpload(formData) {
     setError(null);
     formData.set("cumplimiento_item_id", item.id);
+    formData.set("empresa_id", empresaId);
     const res = await uploadEvidencia(formData);
     if (res?.error) setError(res.error);
   }
 
   async function handleDeleteEvidencia(evidenciaId, rutaStorage) {
     if (!confirm("¿Borrar esta evidencia?")) return;
-    const res = await deleteEvidencia(evidenciaId, rutaStorage);
+    const res = await deleteEvidencia(evidenciaId, rutaStorage, empresaId);
     if (res?.error) setError(res.error);
   }
 
@@ -75,11 +80,11 @@ export default function ChecklistItem({ item, meta, profiles, pilares, fases, ca
     if (meta.tipo === "pesv") {
       updates.pilarId = formData.get("pilar_id");
       updates.fuenteNormativa = formData.get("fuente") || null;
-      res = await updateRequisitoPesv(meta.id, updates);
+      res = await updateRequisitoPesv(meta.id, updates, empresaId);
     } else {
       updates.componente = formData.get("componente");
       updates.puntaje = formData.get("puntaje");
-      res = await updateEstandarSgsst(meta.id, updates);
+      res = await updateEstandarSgsst(meta.id, updates, empresaId);
     }
     if (res?.error) setError(res.error);
     else setEditingCatalog(false);
@@ -88,14 +93,14 @@ export default function ChecklistItem({ item, meta, profiles, pilares, fases, ca
   async function handleToggleActivo() {
     setError(null);
     const fn = meta.tipo === "pesv" ? updateRequisitoPesv : updateEstandarSgsst;
-    const res = await fn(meta.id, { activo: !meta.activo });
+    const res = await fn(meta.id, { activo: !meta.activo }, empresaId);
     if (res?.error) setError(res.error);
   }
 
   async function handleDeleteCatalog() {
     if (!confirm("¿Borrar este ítem del catálogo? También se borra su historial de seguimiento y evidencias.")) return;
     const fn = meta.tipo === "pesv" ? deleteRequisitoPesv : deleteEstandarSgsst;
-    const res = await fn(meta.id);
+    const res = await fn(meta.id, empresaId);
     if (res?.error) setError(res.error);
   }
 

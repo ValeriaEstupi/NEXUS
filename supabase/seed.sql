@@ -1,7 +1,13 @@
 -- =====================================================================
--- SEED — Catálogo inicial de PESV y SG-SST
+-- SEED — Plantilla base de PESV y SG-SST (compartida por todas las
+-- empresas nuevas que se creen)
 -- =====================================================================
--- Corre esto DESPUÉS de schema.sql, una sola vez.
+-- Corre esto DESPUÉS de schema.sql, una sola vez. Esto llena las
+-- tablas "_template" — NO son los datos que usa cada empresa; son el
+-- punto de partida que se copia automáticamente cada vez que alguien
+-- crea una empresa nueva en NEXUS (ver la función create_empresa()
+-- en schema.sql). Editar una plantilla después de este paso NO afecta
+-- a las empresas que ya se crearon — solo a las que se creen después.
 --
 -- ⚠️ IMPORTANTE (léelo antes de correrlo):
 -- Esta plantilla de requisitos del PESV y de estándares del SG-SST fue
@@ -12,15 +18,15 @@
 -- certificado: antes de auditar o de presentarlo ante el Ministerio de
 -- Transporte, la ARL o el Ministerio del Trabajo, el equipo legal/HSEQ
 -- debe contrastar cada ítem contra el texto vigente de la resolución y
--- ajustar redacción, códigos y puntajes si hace falta. Todo esto se
--- edita libremente desde la pantalla de NEXUS (no hay que tocar SQL de
--- nuevo): agregar, editar o desactivar un requisito es una pantalla,
--- no una migración.
+-- ajustar redacción, códigos y puntajes si hace falta. Cada empresa
+-- edita libremente su propia copia desde la pantalla de NEXUS (no hay
+-- que tocar SQL de nuevo): agregar, editar o desactivar un requisito
+-- es una pantalla, no una migración.
 -- =====================================================================
 
 
 -- ---------------------------------------------------------------------
--- Ciclo PHVA (compartido por PESV y SG-SST)
+-- Ciclo PHVA (global, compartido — no es una plantilla, es fijo)
 -- ---------------------------------------------------------------------
 insert into public.fases_phva (orden, nombre) values
   (1, 'Planear'),
@@ -30,9 +36,9 @@ insert into public.fases_phva (orden, nombre) values
 
 
 -- ---------------------------------------------------------------------
--- Pilares del PESV (Res. 40595/2022)
+-- Plantilla: Pilares del PESV (Res. 40595/2022)
 -- ---------------------------------------------------------------------
-insert into public.pilares_pesv (orden, nombre, descripcion) values
+insert into public.pilares_pesv_template (orden, nombre, descripcion) values
   (1, 'Fortalecimiento de la gestión institucional',
       'Política de seguridad vial, comité, diagnóstico, PESV documentado y su gobierno.'),
   (2, 'Comportamiento humano',
@@ -46,9 +52,9 @@ insert into public.pilares_pesv (orden, nombre, descripcion) values
 
 
 -- ---------------------------------------------------------------------
--- Requisitos PESV, por pilar y fase PHVA
+-- Plantilla: Requisitos PESV, por pilar y fase PHVA
 -- ---------------------------------------------------------------------
-insert into public.requisitos_pesv (pilar_id, fase_id, codigo, descripcion, fuente_normativa, orden)
+insert into public.requisitos_pesv_template (pilar_template_id, fase_id, codigo, descripcion, fuente_normativa, orden)
 select p.id, f.id, v.codigo, v.descripcion, v.fuente, v.orden
 from (values
   -- Pilar 1 — Gestión institucional
@@ -100,15 +106,16 @@ from (values
   (5, 'Verificar', '5.4', 'Verificación de la aplicación real del protocolo en accidentes ocurridos.', 'Res. 40595/2022', 4),
   (5, 'Actuar', '5.5', 'Ajuste del protocolo según lecciones aprendidas de casos reales.', 'Res. 40595/2022', 5)
 ) as v(pilar_orden, fase_nombre, codigo, descripcion, fuente, orden)
-join public.pilares_pesv p on p.orden = v.pilar_orden
+join public.pilares_pesv_template p on p.orden = v.pilar_orden
 join public.fases_phva f on f.nombre = v.fase_nombre;
 
 
 -- ---------------------------------------------------------------------
--- Estándares mínimos SG-SST (Res. 0312/2019 — grupo de 60/61 ítems,
--- empresa de 50+ trabajadores y/o riesgo IV-V). Puntaje sobre 100.
+-- Plantilla: Estándares mínimos SG-SST (Res. 0312/2019 — grupo de
+-- 60/61 ítems, empresa de 50+ trabajadores y/o riesgo IV-V). Puntaje
+-- sobre 100.
 -- ---------------------------------------------------------------------
-insert into public.estandares_sgsst (fase_id, componente, codigo, descripcion, puntaje, orden)
+insert into public.estandares_sgsst_template (fase_id, componente, codigo, descripcion, puntaje, orden)
 select f.id, v.componente, v.codigo, v.descripcion, v.puntaje, v.orden
 from (values
   -- I. PLANEAR — 1.1 Recursos
@@ -181,19 +188,6 @@ from (values
 ) as v(fase_nombre, componente, codigo, descripcion, puntaje, orden)
 join public.fases_phva f on f.nombre = v.fase_nombre;
 
-
--- ---------------------------------------------------------------------
--- Empresa: fila inicial (perfil "grande" — 50+ vehículos/trabajadores)
--- ---------------------------------------------------------------------
-insert into public.empresa (razon_social, numero_vehiculos, numero_trabajadores, nivel_riesgo_arl, notas)
-values (
-  'Mi empresa de transporte especial',
-  50,
-  51,
-  'IV',
-  'Perfil inicial: empresa grande (50+ vehículos y/o 51+ trabajadores) — aplica el set completo de 60 estándares mínimos SG-SST y el PESV en su máxima exigencia. Edita estos datos en Configuración -> Empresa.'
-);
-
 -- =====================================================================
--- FIN DEL SEED
+-- FIN DEL SEED — ya puedes crear tu primera empresa desde la app.
 -- =====================================================================

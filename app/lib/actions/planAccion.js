@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "../../../lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "./_shared";
 
 function toPayload(data) {
@@ -15,7 +15,7 @@ function toPayload(data) {
   };
 }
 
-export async function createPlanAccion(data) {
+export async function createPlanAccion(empresaId, data) {
   const supabase = createClient();
   await requireUser(supabase);
 
@@ -24,17 +24,19 @@ export async function createPlanAccion(data) {
     return { error: "Describe la acción a realizar." };
   }
 
-  const { error } = await supabase.from("plan_accion").insert(payload);
+  const { error } = await supabase
+    .from("plan_accion")
+    .insert({ ...payload, empresa_id: empresaId });
 
   if (error) {
     return { error: error.message };
   }
 
-  revalidatePath("/dashboard/plan-accion");
+  revalidatePath(`/dashboard/empresas/${empresaId}/plan-accion`);
   return { success: true };
 }
 
-export async function updatePlanAccion(id, data) {
+export async function updatePlanAccion(id, data, empresaId) {
   const supabase = createClient();
   await requireUser(supabase);
 
@@ -49,11 +51,11 @@ export async function updatePlanAccion(id, data) {
     return { error: error.message };
   }
 
-  revalidatePath("/dashboard/plan-accion");
+  if (empresaId) revalidatePath(`/dashboard/empresas/${empresaId}/plan-accion`);
   return { success: true };
 }
 
-export async function deletePlanAccion(id) {
+export async function deletePlanAccion(id, empresaId) {
   const supabase = createClient();
   await requireUser(supabase);
 
@@ -63,6 +65,6 @@ export async function deletePlanAccion(id) {
     return { error: error.message };
   }
 
-  revalidatePath("/dashboard/plan-accion");
+  if (empresaId) revalidatePath(`/dashboard/empresas/${empresaId}/plan-accion`);
   return { success: true };
 }

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "../../../lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "./_shared";
 
 function toPayload(data) {
@@ -20,7 +20,7 @@ function toPayload(data) {
   };
 }
 
-export async function createConductor(data) {
+export async function createConductor(empresaId, data) {
   const supabase = createClient();
   await requireUser(supabase);
 
@@ -32,21 +32,23 @@ export async function createConductor(data) {
     return { error: "El número de documento es obligatorio." };
   }
 
-  const { error } = await supabase.from("conductores").insert(payload);
+  const { error } = await supabase
+    .from("conductores")
+    .insert({ ...payload, empresa_id: empresaId });
 
   if (error) {
     if (error.code === "23505") {
-      return { error: "Ya existe un conductor con ese número de documento." };
+      return { error: "Ya existe un conductor con ese número de documento en esta empresa." };
     }
     return { error: error.message };
   }
 
-  revalidatePath("/dashboard/conductores");
-  revalidatePath("/dashboard");
+  revalidatePath(`/dashboard/empresas/${empresaId}/conductores`);
+  revalidatePath(`/dashboard/empresas/${empresaId}`);
   return { success: true };
 }
 
-export async function updateConductor(id, data) {
+export async function updateConductor(id, data, empresaId) {
   const supabase = createClient();
   await requireUser(supabase);
 
@@ -67,12 +69,14 @@ export async function updateConductor(id, data) {
     return { error: error.message };
   }
 
-  revalidatePath("/dashboard/conductores");
-  revalidatePath("/dashboard");
+  if (empresaId) {
+    revalidatePath(`/dashboard/empresas/${empresaId}/conductores`);
+    revalidatePath(`/dashboard/empresas/${empresaId}`);
+  }
   return { success: true };
 }
 
-export async function deleteConductor(id) {
+export async function deleteConductor(id, empresaId) {
   const supabase = createClient();
   await requireUser(supabase);
 
@@ -82,6 +86,6 @@ export async function deleteConductor(id) {
     return { error: error.message };
   }
 
-  revalidatePath("/dashboard/conductores");
+  if (empresaId) revalidatePath(`/dashboard/empresas/${empresaId}/conductores`);
   return { success: true };
 }

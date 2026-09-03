@@ -1,10 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "../../../lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "./_shared";
 
-export async function createPilar({ nombre, descripcion, orden }) {
+export async function createPilar(empresaId, { nombre, descripcion, orden }) {
   const supabase = createClient();
   await requireUser(supabase);
 
@@ -14,6 +14,7 @@ export async function createPilar({ nombre, descripcion, orden }) {
   }
 
   const { error } = await supabase.from("pilares_pesv").insert({
+    empresa_id: empresaId,
     nombre: clean,
     descripcion: descripcion || null,
     orden: orden ? Number(orden) : 99,
@@ -23,11 +24,11 @@ export async function createPilar({ nombre, descripcion, orden }) {
     return { error: error.message };
   }
 
-  revalidatePath("/dashboard/pesv");
+  revalidatePath(`/dashboard/empresas/${empresaId}/pesv`);
   return { success: true };
 }
 
-export async function updatePilar(id, { nombre, descripcion, orden, activo }) {
+export async function updatePilar(id, { nombre, descripcion, orden, activo }, empresaId) {
   const supabase = createClient();
   await requireUser(supabase);
 
@@ -47,14 +48,14 @@ export async function updatePilar(id, { nombre, descripcion, orden, activo }) {
     return { error: error.message };
   }
 
-  revalidatePath("/dashboard/pesv");
+  if (empresaId) revalidatePath(`/dashboard/empresas/${empresaId}/pesv`);
   return { success: true };
 }
 
 // Solo se puede borrar un pilar si ya no tiene requisitos colgando
 // (la base de datos lo impide por su cuenta) — si falla, es mejor
 // desactivarlo con updatePilar en vez de borrarlo.
-export async function deletePilar(id) {
+export async function deletePilar(id, empresaId) {
   const supabase = createClient();
   await requireUser(supabase);
 
@@ -70,6 +71,6 @@ export async function deletePilar(id) {
     return { error: error.message };
   }
 
-  revalidatePath("/dashboard/pesv");
+  if (empresaId) revalidatePath(`/dashboard/empresas/${empresaId}/pesv`);
   return { success: true };
 }

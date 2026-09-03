@@ -9,16 +9,30 @@
 --    enlace público sin control.
 -- 4. Crea el bucket, y LUEGO pega este archivo en el SQL Editor y
 --    dale "Run".
+--
+-- Cada archivo se guarda en la ruta "<empresa_id>/<cumplimiento_item_id>/
+-- archivo" — estas reglas leen el primer segmento de la ruta (el
+-- empresa_id) para decidir si la persona pertenece a esa empresa,
+-- sin necesidad de consultar otra tabla.
 -- =====================================================================
 
-create policy "Ver evidencias si estoy registrado"
+create policy "Ver evidencias de mis empresas"
   on storage.objects for select
-  using (bucket_id = 'evidencias' and public.is_registered());
+  using (
+    bucket_id = 'evidencias'
+    and public.is_empresa_member(((storage.foldername(name))[1])::uuid)
+  );
 
-create policy "Subir evidencias si soy editor"
+create policy "Subir evidencias si soy editor de la empresa"
   on storage.objects for insert
-  with check (bucket_id = 'evidencias' and public.is_editor());
+  with check (
+    bucket_id = 'evidencias'
+    and public.is_empresa_editor(((storage.foldername(name))[1])::uuid)
+  );
 
-create policy "Borrar evidencias si soy editor"
+create policy "Borrar evidencias si soy editor de la empresa"
   on storage.objects for delete
-  using (bucket_id = 'evidencias' and public.is_editor());
+  using (
+    bucket_id = 'evidencias'
+    and public.is_empresa_editor(((storage.foldername(name))[1])::uuid)
+  );

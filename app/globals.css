@@ -15,6 +15,7 @@
   --success-soft: #dcfce7;
   --danger-soft: #fee2e2;
   --accent: #ea580c;
+  --topbar-h: 65px;
 }
 
 * {
@@ -205,7 +206,7 @@ button.danger:hover {
 
 .shell {
   display: flex;
-  min-height: 100vh;
+  min-height: calc(100vh - var(--topbar-h));
 }
 
 .sidebar {
@@ -218,8 +219,8 @@ button.danger:hover {
   flex-direction: column;
   gap: 4px;
   position: sticky;
-  top: 0;
-  height: 100vh;
+  top: var(--topbar-h);
+  height: calc(100vh - var(--topbar-h));
   overflow-y: auto;
 }
 
@@ -251,6 +252,16 @@ button.danger:hover {
   color: #ffffff;
 }
 
+.sidebar a.back-to-empresas {
+  color: #6ee7b7;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 6px 10px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0;
+}
+
 .shell-main {
   flex: 1;
   min-width: 0;
@@ -260,13 +271,14 @@ button.danger:hover {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 28px;
+  height: var(--topbar-h);
+  padding: 0 28px;
   background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: 20;
 }
 
 .top-bar h2 {
@@ -662,4 +674,100 @@ a.button-like {
 
 .file-list a {
   color: var(--primary-hover);
+}
+
+/* ---- Tarjetas de empresa (pantalla "Mis empresas") ---- */
+
+.group-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 28px 24px;
+  margin: 16px 0;
+}
+
+.group-card {
+  display: block;
+  text-decoration: none;
+  color: var(--text);
+}
+
+.group-card-banner {
+  height: 130px;
+  border-radius: 12px;
+  margin-bottom: 10px;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+
+.group-card:hover .group-card-banner {
+  opacity: 0.92;
+  transform: translateY(-2px);
+}
+
+.group-card-body {
+  padding: 0 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.group-card-body strong {
+  font-size: 0.98rem;
+}
+
+/* ---- Miembros de una empresa ---- */
+
+.member-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.member-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 8px 6px 6px;
+  font-size: 0.85rem;
+}
+
+.member-chip .avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--primary-soft);
+  color: var(--primary-hover);
+  font-weight: 700;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.member-chip select {
+  margin-bottom: 0;
+  border: none;
+  background: none;
+  font-size: 0.78rem;
+  color: var(--muted);
+  padding: 0;
+}
+
+.member-chip .remove-btn {
+  width: auto;
+  background: none;
+  border: none;
+  color: var(--muted);
+  padding: 0 2px;
+  font-size: 0.9rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.member-chip .remove-btn:hover {
+  color: var(--error);
 }

@@ -1,10 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "../../../lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "./_shared";
 
-export async function createCapacitacion(data) {
+export async function createCapacitacion(empresaId, data) {
   const supabase = createClient();
   const user = await requireUser(supabase);
 
@@ -19,6 +19,7 @@ export async function createCapacitacion(data) {
   const { data: nueva, error } = await supabase
     .from("capacitaciones")
     .insert({
+      empresa_id: empresaId,
       tema,
       tipo: data.tipo || "otra",
       fecha: data.fecha,
@@ -43,11 +44,11 @@ export async function createCapacitacion(data) {
     );
   }
 
-  revalidatePath("/dashboard/capacitaciones");
+  revalidatePath(`/dashboard/empresas/${empresaId}/capacitaciones`);
   return { success: true };
 }
 
-export async function updateCapacitacion(id, data) {
+export async function updateCapacitacion(id, data, empresaId) {
   const supabase = createClient();
   await requireUser(supabase);
 
@@ -71,11 +72,11 @@ export async function updateCapacitacion(id, data) {
     return { error: error.message };
   }
 
-  revalidatePath("/dashboard/capacitaciones");
+  if (empresaId) revalidatePath(`/dashboard/empresas/${empresaId}/capacitaciones`);
   return { success: true };
 }
 
-export async function deleteCapacitacion(id) {
+export async function deleteCapacitacion(id, empresaId) {
   const supabase = createClient();
   await requireUser(supabase);
 
@@ -85,13 +86,13 @@ export async function deleteCapacitacion(id) {
     return { error: error.message };
   }
 
-  revalidatePath("/dashboard/capacitaciones");
+  if (empresaId) revalidatePath(`/dashboard/empresas/${empresaId}/capacitaciones`);
   return { success: true };
 }
 
 // Marca o quita la asistencia de un conductor a una capacitación
 // (checkbox individual, se guarda al vuelo).
-export async function toggleAsistente(capacitacionId, conductorId, asiste) {
+export async function toggleAsistente(capacitacionId, conductorId, asiste, empresaId) {
   const supabase = createClient();
   await requireUser(supabase);
 
@@ -112,6 +113,6 @@ export async function toggleAsistente(capacitacionId, conductorId, asiste) {
     if (error) return { error: error.message };
   }
 
-  revalidatePath("/dashboard/capacitaciones");
+  if (empresaId) revalidatePath(`/dashboard/empresas/${empresaId}/capacitaciones`);
   return { success: true };
 }

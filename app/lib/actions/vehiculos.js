@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "../../../lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "./_shared";
 
 function toPayload(data) {
@@ -22,7 +22,7 @@ function toPayload(data) {
   };
 }
 
-export async function createVehiculo(data) {
+export async function createVehiculo(empresaId, data) {
   const supabase = createClient();
   await requireUser(supabase);
 
@@ -31,21 +31,23 @@ export async function createVehiculo(data) {
     return { error: "La placa es obligatoria." };
   }
 
-  const { error } = await supabase.from("vehiculos").insert(payload);
+  const { error } = await supabase
+    .from("vehiculos")
+    .insert({ ...payload, empresa_id: empresaId });
 
   if (error) {
     if (error.code === "23505") {
-      return { error: "Ya existe un vehículo con esa placa." };
+      return { error: "Ya existe un vehículo con esa placa en esta empresa." };
     }
     return { error: error.message };
   }
 
-  revalidatePath("/dashboard/vehiculos");
-  revalidatePath("/dashboard");
+  revalidatePath(`/dashboard/empresas/${empresaId}/vehiculos`);
+  revalidatePath(`/dashboard/empresas/${empresaId}`);
   return { success: true };
 }
 
-export async function updateVehiculo(id, data) {
+export async function updateVehiculo(id, data, empresaId) {
   const supabase = createClient();
   await requireUser(supabase);
 
@@ -60,12 +62,14 @@ export async function updateVehiculo(id, data) {
     return { error: error.message };
   }
 
-  revalidatePath("/dashboard/vehiculos");
-  revalidatePath("/dashboard");
+  if (empresaId) {
+    revalidatePath(`/dashboard/empresas/${empresaId}/vehiculos`);
+    revalidatePath(`/dashboard/empresas/${empresaId}`);
+  }
   return { success: true };
 }
 
-export async function deleteVehiculo(id) {
+export async function deleteVehiculo(id, empresaId) {
   const supabase = createClient();
   await requireUser(supabase);
 
@@ -75,6 +79,6 @@ export async function deleteVehiculo(id) {
     return { error: error.message };
   }
 
-  revalidatePath("/dashboard/vehiculos");
+  if (empresaId) revalidatePath(`/dashboard/empresas/${empresaId}/vehiculos`);
   return { success: true };
 }

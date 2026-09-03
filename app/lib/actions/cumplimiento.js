@@ -1,12 +1,18 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "../../../lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "./_shared";
+
+function revalidateEmpresa(empresaId) {
+  revalidatePath(`/dashboard/empresas/${empresaId}/pesv`);
+  revalidatePath(`/dashboard/empresas/${empresaId}/sgsst`);
+  revalidatePath(`/dashboard/empresas/${empresaId}`);
+}
 
 // Actualiza el estado real de avance de un requisito PESV o un
 // estándar SG-SST: estado, responsable, fecha límite u observaciones.
-export async function updateCumplimientoItem(itemId, updates) {
+export async function updateCumplimientoItem(itemId, updates, empresaId) {
   const supabase = createClient();
   await requireUser(supabase);
 
@@ -28,17 +34,15 @@ export async function updateCumplimientoItem(itemId, updates) {
     return { error: error.message };
   }
 
-  revalidatePath("/dashboard/pesv");
-  revalidatePath("/dashboard/sgsst");
-  revalidatePath("/dashboard");
+  if (empresaId) revalidateEmpresa(empresaId);
   return { success: true };
 }
 
-// Agrega un requisito nuevo al catálogo del PESV (por ejemplo, si el
-// equipo legal detecta que falta uno al validar contra la resolución
-// vigente). Se crea sola su fila de seguimiento gracias al trigger de
-// la base de datos.
-export async function addRequisitoPesv({ pilarId, faseId, codigo, descripcion }) {
+// Agrega un requisito nuevo al catálogo del PESV de una empresa (por
+// ejemplo, si el equipo legal detecta que falta uno al validar contra
+// la resolución vigente). Se crea sola su fila de seguimiento gracias
+// al trigger de la base de datos.
+export async function addRequisitoPesv({ empresaId, pilarId, faseId, codigo, descripcion }) {
   const supabase = createClient();
   await requireUser(supabase);
 
@@ -51,6 +55,7 @@ export async function addRequisitoPesv({ pilarId, faseId, codigo, descripcion })
   }
 
   const { error } = await supabase.from("requisitos_pesv").insert({
+    empresa_id: empresaId,
     pilar_id: pilarId,
     fase_id: faseId || null,
     codigo: codigo || null,
@@ -62,14 +67,14 @@ export async function addRequisitoPesv({ pilarId, faseId, codigo, descripcion })
     return { error: error.message };
   }
 
-  revalidatePath("/dashboard/pesv");
+  revalidatePath(`/dashboard/empresas/${empresaId}/pesv`);
   return { success: true };
 }
 
 // Edita un requisito ya existente del catálogo PESV: texto, código,
 // fuente, a qué pilar/fase pertenece, o lo activa/desactiva (en vez de
 // borrarlo, para no perder el historial de seguimiento).
-export async function updateRequisitoPesv(id, updates) {
+export async function updateRequisitoPesv(id, updates, empresaId) {
   const supabase = createClient();
   await requireUser(supabase);
 
@@ -92,14 +97,14 @@ export async function updateRequisitoPesv(id, updates) {
     return { error: error.message };
   }
 
-  revalidatePath("/dashboard/pesv");
+  if (empresaId) revalidatePath(`/dashboard/empresas/${empresaId}/pesv`);
   return { success: true };
 }
 
 // Borra un requisito del catálogo PESV (y, en cascada, su fila de
-// seguimiento y las evidencias que tuviera). Solo super admin, desde
-// la política de la base de datos.
-export async function deleteRequisitoPesv(id) {
+// seguimiento y las evidencias que tuviera). Solo admin de la empresa,
+// desde la política de la base de datos.
+export async function deleteRequisitoPesv(id, empresaId) {
   const supabase = createClient();
   await requireUser(supabase);
 
@@ -109,12 +114,12 @@ export async function deleteRequisitoPesv(id) {
     return { error: error.message };
   }
 
-  revalidatePath("/dashboard/pesv");
+  if (empresaId) revalidatePath(`/dashboard/empresas/${empresaId}/pesv`);
   return { success: true };
 }
 
-// Agrega un estándar nuevo al catálogo del SG-SST.
-export async function addEstandarSgsst({ faseId, componente, codigo, descripcion, puntaje }) {
+// Agrega un estándar nuevo al catálogo del SG-SST de una empresa.
+export async function addEstandarSgsst({ empresaId, faseId, componente, codigo, descripcion, puntaje }) {
   const supabase = createClient();
   await requireUser(supabase);
 
@@ -127,6 +132,7 @@ export async function addEstandarSgsst({ faseId, componente, codigo, descripcion
   }
 
   const { error } = await supabase.from("estandares_sgsst").insert({
+    empresa_id: empresaId,
     fase_id: faseId || null,
     componente: componente.trim(),
     codigo: codigo || "—",
@@ -138,13 +144,13 @@ export async function addEstandarSgsst({ faseId, componente, codigo, descripcion
     return { error: error.message };
   }
 
-  revalidatePath("/dashboard/sgsst");
+  revalidatePath(`/dashboard/empresas/${empresaId}/sgsst`);
   return { success: true };
 }
 
 // Edita un estándar ya existente del catálogo SG-SST, o lo
 // activa/desactiva (en vez de borrarlo, para no perder el historial).
-export async function updateEstandarSgsst(id, updates) {
+export async function updateEstandarSgsst(id, updates, empresaId) {
   const supabase = createClient();
   await requireUser(supabase);
 
@@ -170,13 +176,12 @@ export async function updateEstandarSgsst(id, updates) {
     return { error: error.message };
   }
 
-  revalidatePath("/dashboard/sgsst");
+  if (empresaId) revalidatePath(`/dashboard/empresas/${empresaId}/sgsst`);
   return { success: true };
 }
 
-// Borra un estándar del catálogo SG-SST. Solo super admin, desde la
-// política de la base de datos.
-export async function deleteEstandarSgsst(id) {
+// Borra un estándar del catálogo SG-SST. Solo admin de la empresa.
+export async function deleteEstandarSgsst(id, empresaId) {
   const supabase = createClient();
   await requireUser(supabase);
 
@@ -186,28 +191,31 @@ export async function deleteEstandarSgsst(id) {
     return { error: error.message };
   }
 
-  revalidatePath("/dashboard/sgsst");
+  if (empresaId) revalidatePath(`/dashboard/empresas/${empresaId}/sgsst`);
   return { success: true };
 }
 
 // Sube un archivo de evidencia (PDF, imagen...) al bucket privado
-// "evidencias" y guarda la referencia. El archivo viaja dentro del
-// mismo FormData del formulario.
+// "evidencias", en la ruta "<empresa_id>/<cumplimiento_item_id>/archivo".
+// El empresa_id de la FILA en la base de datos se calcula solo (ver
+// trigger set_evidencia_empresa en schema.sql) — acá solo lo usamos
+// para armar la ruta del archivo en Storage.
 export async function uploadEvidencia(formData) {
   const supabase = createClient();
   const user = await requireUser(supabase);
 
+  const empresaId = formData.get("empresa_id");
   const itemId = formData.get("cumplimiento_item_id");
   const file = formData.get("archivo");
 
-  if (!itemId) {
-    return { error: "Falta el ítem de cumplimiento." };
+  if (!empresaId || !itemId) {
+    return { error: "Falta la empresa o el ítem de cumplimiento." };
   }
   if (!file || typeof file === "string" || file.size === 0) {
     return { error: "Selecciona un archivo." };
   }
 
-  const rutaStorage = `${itemId}/${Date.now()}-${file.name}`;
+  const rutaStorage = `${empresaId}/${itemId}/${Date.now()}-${file.name}`;
 
   const { error: uploadError } = await supabase.storage
     .from("evidencias")
@@ -232,8 +240,7 @@ export async function uploadEvidencia(formData) {
     return { error: insertError.message };
   }
 
-  revalidatePath("/dashboard/pesv");
-  revalidatePath("/dashboard/sgsst");
+  revalidateEmpresa(empresaId);
   return { success: true };
 }
 
@@ -253,7 +260,7 @@ export async function getEvidenciaUrl(rutaStorage) {
   return { url: data.signedUrl };
 }
 
-export async function deleteEvidencia(evidenciaId, rutaStorage) {
+export async function deleteEvidencia(evidenciaId, rutaStorage, empresaId) {
   const supabase = createClient();
   await requireUser(supabase);
 
@@ -268,7 +275,6 @@ export async function deleteEvidencia(evidenciaId, rutaStorage) {
     return { error: error.message };
   }
 
-  revalidatePath("/dashboard/pesv");
-  revalidatePath("/dashboard/sgsst");
+  if (empresaId) revalidateEmpresa(empresaId);
   return { success: true };
 }

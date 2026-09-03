@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createClient } from "../../lib/supabase/server";
-import { estadoVencimiento } from "../lib/helpers";
+import { createClient } from "@/lib/supabase/server";
+import NewEmpresaForm from "./NewEmpresaForm";
 
+// Depende de a qué empresas pertenece quien mira (o todas, si es app
+// admin) — nunca debe quedar guardado en caché para servirse igual a
+// todo el mundo.
 export const dynamic = "force-dynamic";
 
 export default async function DashboardHome() {
@@ -12,99 +15,103 @@ export default async function DashboardHome() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [
-    { data: profile },
-    { data: empresa },
-    { data: avancePesv },
-    { data: avanceSgsstRows },
-    { count: totalVehiculos },
-    { count: totalConductores },
-    { data: vehiculos },
-    { data: conductores },
-    { data: incidentesAbiertos },
-  ] = await Promise.all([
-    supabase.from("profiles").select("full_name, email, role").eq("id", user.id).single(),
-    supabase.from("empresa").select("razon_social, numero_vehiculos, numero_trabajadores").limit(1).single(),
-    supabase.from("v_avance_pesv").select("*"),
-    supabase.from("v_avance_sgsst").select("*"),
-    supabase.from("vehiculos").select("id", { count: "exact", head: true }),
-    supabase.from("conductores").select("id", { count: "exact", head: true }),
-    supabase.from("vehiculos").select("fecha_vencimiento_soat, fecha_vencimiento_tecnomecanica"),
-    supabase.from("conductores").select("fecha_vencimiento_licencia, fecha_vencimiento_examen_medico"),
-    supabase.from("incidentes").select("id").neq("estado", "cerrado"),
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("full_name, email, is_app_admin")
+    .eq("id", user.id)
+    .single();
+
+  // "empresas" trae, según las reglas de privacidad: tus propias
+  // empresas, o TODAS si eres app admin. Para poder mostrar las dos
+  // listas por separado, además consultamos de cuáles eres miembro tú
+  // en concreto.
+  const [{ data: allVisibleEmpresas }, { data: myMemberships }] = await Promise.all([
+    supabase.from("empresas").select("id, razon_social, created_at").order("created_at", { ascending: false }),
+    supabase.from("empresa_members").select("empresa_id, role").eq("user_id", user.id),
   ]);
 
-  const avanceSgsst = avanceSgsstRows?.[0] || { porcentaje_avance: 0 };
-  const totalRequisitosPesv = (avancePesv || []).reduce((s, p) => s + (p.total_requisitos - p.no_aplica), 0);
-  const totalCumplidosPesv = (avancePesv || []).reduce((s, p) => s + p.cumplidos, 0);
-  const avancePesvGlobal = totalRequisitosPesv > 0
-    ? Math.round((totalCumplidosPesv / totalRequisitosPesv) * 100)
-    : 0;
-
-  let alertasVencimiento = 0;
-  for (const v of vehiculos || []) {
-    if (["vencido", "por_vencer"].includes(estadoVencimiento(v.fecha_vencimiento_soat))) alertasVencimiento++;
-    if (["vencido", "por_vencer"].includes(estadoVencimiento(v.fecha_vencimiento_tecnomecanica))) alertasVencimiento++;
-  }
-  for (const c of conductores || []) {
-    if (["vencido", "por_vencer"].includes(estadoVencimiento(c.fecha_vencimiento_licencia))) alertasVencimiento++;
-    if (["vencido", "por_vencer"].includes(estadoVencimiento(c.fecha_vencimiento_examen_medico))) alertasVencimiento++;
-  }
+  const myRoleByEmpresa = {};
+  (myMemberships || []).forEach((m) => {
+    myRoleByEmpresa[m.empresa_id] = m.role;
+  });
+  const myEmpresas = (allVisibleEmpresas || []).filter((e) => myRoleByEmpresa[e.id]);
 
   const displayName = profile?.full_name || profile?.email;
 
   return (
     <div className="page-body">
       <h1>Hola, {displayName} 👋</h1>
-      <p className="page-intro">
-        {empresa?.razon_social || "Tu empresa"} · Resumen de cumplimiento
-        del PESV y del SG-SST.
-      </p>
-
-      <div className="stat-grid">
-        <Link href="/dashboard/pesv" className="stat-card" style={{ textDecoration: "none", color: "inherit" }}>
-          <div className="stat-label">Avance PESV</div>
-          <div className="stat-value">{avancePesvGlobal}%</div>
-        </Link>
-        <Link href="/dashboard/sgsst" className="stat-card" style={{ textDecoration: "none", color: "inherit" }}>
-          <div className="stat-label">Calificación SG-SST</div>
-          <div className="stat-value">{avanceSgsst.porcentaje_avance}%</div>
-        </Link>
-        <Link href="/dashboard/vehiculos" className="stat-card" style={{ textDecoration: "none", color: "inherit" }}>
-          <div className="stat-label">Vehículos</div>
-          <div className="stat-value">{totalVehiculos || 0}</div>
-        </Link>
-        <Link href="/dashboard/conductores" className="stat-card" style={{ textDecoration: "none", color: "inherit" }}>
-          <div className="stat-label">Conductores</div>
-          <div className="stat-value">{totalConductores || 0}</div>
-        </Link>
-        <Link
-          href="/dashboard/indicadores"
-          className={`stat-card ${alertasVencimiento > 0 ? "alert" : ""}`}
-          style={{ textDecoration: "none", color: "inherit" }}
-        >
-          <div className="stat-label">Documentos por vencer / vencidos</div>
-          <div className="stat-value">{alertasVencimiento}</div>
-        </Link>
-        <Link
-          href="/dashboard/incidentes"
-          className={`stat-card ${(incidentesAbiertos?.length || 0) > 0 ? "alert" : ""}`}
-          style={{ textDecoration: "none", color: "inherit" }}
-        >
-          <div className="stat-label">Incidentes abiertos</div>
-          <div className="stat-value">{incidentesAbiertos?.length || 0}</div>
-        </Link>
-      </div>
+      <p className="page-intro">Elige una empresa para ver su cumplimiento del PESV y del SG-SST.</p>
 
       <section className="section-card">
-        <h2>🧭 Accesos rápidos</h2>
-        <div className="stat-grid">
-          <Link href="/dashboard/pesv" className="button-like">Checklist PESV</Link>
-          <Link href="/dashboard/sgsst" className="button-like">Checklist SG-SST</Link>
-          <Link href="/dashboard/incidentes" className="button-like">Reportar incidente</Link>
-          <Link href="/dashboard/indicadores" className="button-like">Ver indicadores</Link>
-        </div>
+        <h2>🏢 Tus empresas</h2>
+
+        {myEmpresas.length > 0 ? (
+          <div className="group-card-grid">
+            {myEmpresas.map((empresa, i) => (
+              <EmpresaCard
+                key={empresa.id}
+                empresa={empresa}
+                role={myRoleByEmpresa[empresa.id]}
+                colorIndex={i}
+              />
+            ))}
+          </div>
+        ) : (
+          <p className="muted">Todavía no eres parte de ninguna empresa. Crea la primera abajo.</p>
+        )}
       </section>
+
+      {profile?.is_app_admin && (
+        <section className="section-card">
+          <h2>🌐 Todas las empresas de la plataforma</h2>
+          <p className="muted small">
+            Ves esta lista completa porque tu cuenta tiene el rol de app
+            admin — incluye empresas de las que no eres miembro.
+          </p>
+
+          {allVisibleEmpresas && allVisibleEmpresas.length > 0 ? (
+            <div className="group-card-grid">
+              {allVisibleEmpresas.map((empresa, i) => (
+                <EmpresaCard
+                  key={empresa.id}
+                  empresa={empresa}
+                  role={myRoleByEmpresa[empresa.id]}
+                  colorIndex={i}
+                  notMember={!myRoleByEmpresa[empresa.id]}
+                />
+              ))}
+            </div>
+          ) : (
+            <p className="muted">Todavía no hay empresas creadas.</p>
+          )}
+        </section>
+      )}
+
+      <NewEmpresaForm />
     </div>
+  );
+}
+
+const BANNER_STYLES = [
+  "repeating-linear-gradient(45deg, rgba(255,255,255,0.14) 0 2px, transparent 2px 16px), linear-gradient(135deg, #0f766e 0%, #14b8a6 55%, #22d3ee 100%)",
+  "repeating-linear-gradient(-45deg, rgba(255,255,255,0.14) 0 2px, transparent 2px 16px), linear-gradient(135deg, #0e7490 0%, #0891b2 55%, #22d3ee 100%)",
+  "radial-gradient(rgba(255,255,255,0.2) 1.5px, transparent 1.5px) 0 0/16px 16px, linear-gradient(135deg, #065f46 0%, #059669 60%, #6ee7b7 100%)",
+  "repeating-linear-gradient(90deg, rgba(255,255,255,0.12) 0 2px, transparent 2px 18px), linear-gradient(135deg, #164e63 0%, #0e7490 55%, #67e8f9 100%)",
+];
+
+function EmpresaCard({ empresa, role, colorIndex, notMember }) {
+  const banner = BANNER_STYLES[colorIndex % BANNER_STYLES.length];
+
+  return (
+    <Link href={`/dashboard/empresas/${empresa.id}`} className="group-card">
+      <div className="group-card-banner" style={{ background: banner }} />
+      <div className="group-card-body">
+        <strong>{empresa.razon_social}</strong>
+        <span className="muted small">
+          {role ? `Tu rol: ${role}` : notMember ? "No eres miembro" : ""}
+        </span>
+      </div>
+    </Link>
   );
 }

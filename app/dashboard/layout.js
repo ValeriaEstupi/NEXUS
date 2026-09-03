@@ -1,18 +1,11 @@
 import { redirect } from "next/navigation";
-import { createClient } from "../../lib/supabase/server";
-import Sidebar from "./Sidebar";
+import { createClient } from "@/lib/supabase/server";
 import LogoutButton from "./LogoutButton";
 
-// Todo lo que hay bajo /dashboard depende de quién mira (su rol, sus
-// datos) — nunca debe quedar guardado en caché para servirse igual a
-// todo el mundo.
+// Todo lo que hay bajo /dashboard depende de quién mira (sus empresas,
+// sus datos) — nunca debe quedar guardado en caché para servirse igual
+// a todo el mundo.
 export const dynamic = "force-dynamic";
-
-const ROLE_LABEL = {
-  super_admin: "Super admin",
-  editor: "Editor",
-  lector: "Lectura",
-};
 
 export default async function DashboardLayout({ children }) {
   const supabase = createClient();
@@ -26,7 +19,7 @@ export default async function DashboardLayout({ children }) {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name, email, role")
+    .select("full_name, email, is_app_admin")
     .eq("id", user.id)
     .single();
 
@@ -34,29 +27,23 @@ export default async function DashboardLayout({ children }) {
   const initial = (displayName || "?").trim().charAt(0).toUpperCase();
 
   return (
-    <div className="shell">
-      <Sidebar />
-      <div className="shell-main">
-        <div className="top-bar">
-          <div>
-            <h2>Plataforma PESV · SG-SST</h2>
-            <span className="muted small">Transporte especial</span>
-          </div>
-          <div className="user-chip">
-            <div className="user-avatar">{initial}</div>
-            <div>
-              <div className="user-name">
-                {displayName}
-                <span className="role-tag">
-                  {ROLE_LABEL[profile?.role] || "Lectura"}
-                </span>
-              </div>
-            </div>
-            <LogoutButton />
-          </div>
+    <>
+      <div className="top-bar">
+        <div className="brand">
+          <span className="brand-mark">🛡️</span> NEXUS
         </div>
-        {children}
+        <div className="user-chip">
+          <div className="user-avatar">{initial}</div>
+          <div>
+            <div className="user-name">
+              {displayName}
+              {profile?.is_app_admin && <span className="role-tag">App admin</span>}
+            </div>
+          </div>
+          <LogoutButton />
+        </div>
       </div>
-    </div>
+      {children}
+    </>
   );
 }

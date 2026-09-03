@@ -1,48 +1,42 @@
 -- =====================================================================
--- ESQUEMA DE BASE DE DATOS — NEXUS
--- Plataforma de seguimiento del PESV y del Sistema de Gestión Integrado
--- (SG-SST) para empresa de transporte especial
+-- ESQUEMA DE BASE DE DATOS — NEXUS (v2, multiempresa)
+-- Plataforma de seguimiento del PESV y del SG-SST para varias empresas
+-- de transporte especial, cada una con sus datos totalmente separados.
 -- =====================================================================
 -- Cómo usar este archivo:
--- 1. Entra a tu proyecto de Supabase EN BLANCO, creado solo para NEXUS
---    (no el mismo proyecto que usa la app de "tareas", si la tienes).
--- 2. Ve al menú "SQL Editor" (icono de terminal, en la barra lateral).
--- 3. Crea una consulta nueva, pega TODO este archivo y dale "Run".
--- 4. Después corre `supabase/seed.sql` (carga el catálogo de pilares
---    del PESV y de estándares del SG-SST) — ver README.md.
--- Se puede ejecutar una sola vez. Si necesitas volver a correrlo desde
--- cero, avísame antes: hay que borrar las tablas existentes primero.
+-- 1. Si tu proyecto de Supabase está VACÍO (nunca corriste nada acá):
+--    ve directo al SQL Editor, pega TODO este archivo y dale Run.
+-- 2. Si ya habías corrido la versión anterior (una sola empresa) y no
+--    te importa perder esos datos: corre primero `reset_v1.sql`, y
+--    LUEGO este archivo.
+-- 3. Después corre `seed.sql` (carga el catálogo base de PESV/SG-SST
+--    que se copia cada vez que se crea una empresa nueva).
 -- =====================================================================
 
 
 -- ---------------------------------------------------------------------
--- 1) PERFILES Y ROLES
+-- 1) PERFILES
 -- ---------------------------------------------------------------------
--- Supabase ya trae una tabla interna "auth.users" para el login
--- (guarda el correo y la contraseña de forma segura). Nosotros creamos
--- "profiles" para guardar datos públicos del usuario y su rol dentro
--- de NEXUS:
---   - "lector": puede ver todo, pero no puede crear ni editar nada.
---   - "editor": puede ver y editar el PESV, el SG-SST, vehículos,
---     conductores, capacitaciones e incidentes.
---   - "super_admin": todo lo anterior, más borrar registros y cambiar
---     el rol de otras personas (Configuración -> Usuarios).
--- Por defecto, cualquier persona que se registre queda como "lector"
--- hasta que alguien con rol "super_admin" le suba el rol.
+-- "is_app_admin" marca a la(s) persona(s) dueña(s) de toda la
+-- plataforma NEXUS (por ejemplo, quien la administra para varias
+-- empresas cliente): pueden ver y administrar TODAS las empresas, sin
+-- necesidad de pertenecer a cada una. Por defecto nadie lo es; se
+-- activa a mano con un UPDATE (ver supabase/migrations/001_...).
+--
+-- El rol de cada persona DENTRO de una empresa (lector/editor/admin)
+-- vive aparte, en "empresa_members" — una misma persona puede ser
+-- admin de una empresa y solo lectura en otra.
 create table public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   email text not null,
   full_name text,
-  role text not null default 'lector'
-    check (role in ('super_admin', 'editor', 'lector')),
+  is_app_admin boolean not null default false,
   created_at timestamptz not null default now()
 );
 
 alter table public.profiles enable row level security;
 
--- Funciones auxiliares de permisos. Se definen una sola vez y las usan
--- las políticas de TODAS las tablas de abajo.
-create or replace function public.is_super_admin()
+create or replace function public.is_app_admin()
 returns boolean
 language sql
 security definer
@@ -50,48 +44,13 @@ stable
 set search_path = public
 as $$
   select coalesce(
-    (select role = 'super_admin' from public.profiles where id = auth.uid()),
+    (select is_app_admin from public.profiles where id = auth.uid()),
     false
   );
 $$;
 
-create or replace function public.is_editor()
-returns boolean
-language sql
-security definer
-stable
-set search_path = public
-as $$
-  select coalesce(
-    (select role in ('super_admin', 'editor') from public.profiles where id = auth.uid()),
-    false
-  );
-$$;
-
--- "¿Esta persona tiene sesión Y ya tiene fila en profiles?" — todas las
--- tablas de datos de la empresa son visibles para cualquiera que haya
--- iniciado sesión (NEXUS es una herramienta interna de una sola empresa,
--- no una app multi-cliente), pero nunca para alguien sin sesión.
-create or replace function public.is_registered()
-returns boolean
-language sql
-security definer
-stable
-set search_path = public
-as $$
-  select exists (select 1 from public.profiles where id = auth.uid());
-$$;
-
-create policy "Ver mi perfil o todos si soy super admin"
-  on public.profiles for select
-  using (auth.uid() = id or public.is_super_admin() or public.is_registered());
-
-create policy "Actualizar mi propio nombre"
-  on public.profiles for update
-  using (auth.uid() = id);
-
--- Se ejecuta automáticamente cada vez que alguien se registra: crea su
--- fila en "profiles" (con rol "lector") sin que la app tenga que hacerlo.
+-- Esta función se ejecuta automáticamente cada vez que alguien se
+-- registra: crea su fila en "profiles" sin que la app tenga que hacerlo.
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -108,26 +67,6 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
--- Función para que un super admin cambie el rol de otra persona desde
--- la pantalla de Configuración -> Usuarios (así no exponemos un UPDATE
--- directo sobre "role" a cualquier usuario).
-create or replace function public.set_user_role(_user_id uuid, _role text)
-returns void
-language plpgsql
-security definer
-set search_path = public
-as $$
-begin
-  if not public.is_super_admin() then
-    raise exception 'Solo un super admin puede cambiar roles.';
-  end if;
-  if _role not in ('super_admin', 'editor', 'lector') then
-    raise exception 'Rol inválido.';
-  end if;
-  update public.profiles set role = _role where id = _user_id;
-end;
-$$;
-
 -- Utilidad compartida: pone "updated_at" al momento de cada UPDATE.
 create or replace function public.set_updated_at()
 returns trigger language plpgsql as $$
@@ -139,84 +78,301 @@ $$;
 
 
 -- ---------------------------------------------------------------------
--- 2) DATOS DE LA EMPRESA
+-- 2) EMPRESAS Y SUS MIEMBROS ("grupos de trabajo" por empresa)
 -- ---------------------------------------------------------------------
--- Una sola fila con los datos que determinan qué tan exigente es el
--- PESV y qué grupo de estándares mínimos del SG-SST aplica (Resolución
--- 40595 de 2022 y Resolución 0312 de 2019). Editable desde
--- Configuración -> Empresa.
-create table public.empresa (
+create table public.empresas (
   id uuid primary key default gen_random_uuid(),
-  razon_social text not null default 'Mi empresa de transporte',
+  razon_social text not null,
   nit text,
   numero_vehiculos integer,
   numero_trabajadores integer,
   nivel_riesgo_arl text check (nivel_riesgo_arl in ('I', 'II', 'III', 'IV', 'V')),
   notas text,
+  created_by uuid not null references public.profiles(id),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
-alter table public.empresa enable row level security;
+alter table public.empresas enable row level security;
 
-create trigger empresa_set_updated_at
-  before update on public.empresa
+create trigger empresas_set_updated_at
+  before update on public.empresas
   for each row execute procedure public.set_updated_at();
 
-create policy "Ver datos de la empresa si estoy registrado"
-  on public.empresa for select
-  using (public.is_registered());
-
-create policy "Editar datos de la empresa si soy editor"
-  on public.empresa for update
-  using (public.is_editor());
-
-
--- ---------------------------------------------------------------------
--- 3) CATÁLOGOS COMPARTIDOS: PILARES DEL PESV Y CICLO PHVA
--- ---------------------------------------------------------------------
--- El PESV (Res. 40595/2022) se organiza en 5 pilares. El SG-SST y el
--- PESV comparten la misma metodología de mejora continua: el ciclo
--- PHVA (Planear, Hacer, Verificar, Actuar). Ambos catálogos se cargan
--- con supabase/seed.sql — aquí solo se crean las tablas.
-create table public.pilares_pesv (
-  id serial primary key,
-  orden integer not null,
-  nombre text not null,
-  descripcion text,
-  activo boolean not null default true
+-- Cada fila dice "esta persona pertenece a esta empresa, con este rol":
+--   - "lector": ve todo, no puede editar nada (salvo reportar incidentes).
+--   - "editor": crea y edita el día a día de esa empresa.
+--   - "admin": además, borra registros y administra los miembros de
+--     ESA empresa (no de las demás).
+create table public.empresa_members (
+  empresa_id uuid not null references public.empresas(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  role text not null default 'lector' check (role in ('admin', 'editor', 'lector')),
+  joined_at timestamptz not null default now(),
+  primary key (empresa_id, user_id)
 );
 
+alter table public.empresa_members enable row level security;
+
+-- Funciones auxiliares de permisos por empresa. Un "app admin" siempre
+-- pasa, sin importar si pertenece o no a la empresa — igual que la
+-- dueña de toda la plataforma.
+create or replace function public.is_empresa_member(_empresa_id uuid)
+returns boolean
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select public.is_app_admin() or exists (
+    select 1 from public.empresa_members
+    where empresa_id = _empresa_id and user_id = auth.uid()
+  );
+$$;
+
+create or replace function public.empresa_role(_empresa_id uuid)
+returns text
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select role from public.empresa_members
+  where empresa_id = _empresa_id and user_id = auth.uid();
+$$;
+
+create or replace function public.is_empresa_editor(_empresa_id uuid)
+returns boolean
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select public.is_app_admin() or coalesce(
+    public.empresa_role(_empresa_id) in ('editor', 'admin'), false
+  );
+$$;
+
+create or replace function public.is_empresa_admin(_empresa_id uuid)
+returns boolean
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select public.is_app_admin() or coalesce(
+    public.empresa_role(_empresa_id) = 'admin', false
+  );
+$$;
+
+-- Políticas de "empresas": veo/edito las empresas donde soy miembro
+-- (o todas si soy app admin). Cualquier persona registrada puede
+-- crear una empresa nueva (queda como admin de esa empresa gracias a
+-- la función create_empresa(), más abajo).
+create policy "Ver las empresas a las que pertenezco o todas si soy app admin"
+  on public.empresas for select
+  using (public.is_empresa_member(id));
+
+create policy "Cualquier usuario logueado puede crear una empresa"
+  on public.empresas for insert
+  with check (auth.uid() = created_by);
+
+create policy "Un admin de la empresa o el app admin puede editarla"
+  on public.empresas for update
+  using (public.is_empresa_admin(id));
+
+create policy "Un admin de la empresa o el app admin puede eliminarla"
+  on public.empresas for delete
+  using (public.is_empresa_admin(id));
+
+-- Políticas de "empresa_members".
+create policy "Ver miembros de mis empresas o todas si soy app admin"
+  on public.empresa_members for select
+  using (public.is_empresa_member(empresa_id));
+
+create policy "Unirse a una empresa, ser agregado por un admin, o por el app admin"
+  on public.empresa_members for insert
+  with check (user_id = auth.uid() or public.is_empresa_admin(empresa_id));
+
+create policy "Un admin de la empresa o el app admin puede cambiar roles"
+  on public.empresa_members for update
+  using (public.is_empresa_admin(empresa_id));
+
+create policy "Un admin de la empresa o el app admin puede quitar miembros"
+  on public.empresa_members for delete
+  using (public.is_empresa_admin(empresa_id));
+
+-- Ver a tus compañeros de empresa (para elegir responsables, etc.) y
+-- buscar usuarios existentes para invitarlos.
+create or replace function public.shares_empresa_with(_profile_id uuid)
+returns boolean
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.empresa_members em1
+    join public.empresa_members em2 on em1.empresa_id = em2.empresa_id
+    where em1.user_id = auth.uid() and em2.user_id = _profile_id
+  );
+$$;
+
+create policy "Ver mi perfil, compañeros de empresa, o todos si soy app admin"
+  on public.profiles for select
+  using (auth.uid() = id or public.is_app_admin() or public.shares_empresa_with(id));
+
+create policy "Actualizar mi propio nombre"
+  on public.profiles for update
+  using (auth.uid() = id);
+
+create or replace function public.find_user_id_by_email(_email text)
+returns uuid
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select id from public.profiles where email = _email limit 1;
+$$;
+
+-- Crea una empresa y dos cosas más en el mismo paso:
+--  1) Deja a quien la crea como "admin" de esa empresa.
+--  2) Copia el catálogo base del PESV y del SG-SST (las tablas
+--     "_template") para que la empresa arranque con su propia copia
+--     editable, independiente de las demás empresas.
+create or replace function public.create_empresa(
+  _razon_social text,
+  _nit text default null,
+  _numero_vehiculos integer default null,
+  _numero_trabajadores integer default null,
+  _nivel_riesgo_arl text default null
+)
+returns public.empresas
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  new_empresa public.empresas;
+  pilar_tpl record;
+  new_pilar_id integer;
+  pilar_map jsonb := '{}'::jsonb;
+begin
+  insert into public.empresas (razon_social, nit, numero_vehiculos, numero_trabajadores, nivel_riesgo_arl, created_by)
+  values (_razon_social, _nit, _numero_vehiculos, _numero_trabajadores, _nivel_riesgo_arl, auth.uid())
+  returning * into new_empresa;
+
+  insert into public.empresa_members (empresa_id, user_id, role)
+  values (new_empresa.id, auth.uid(), 'admin');
+
+  -- Copiar pilares del PESV, armando un mapa "id de plantilla -> id nuevo".
+  for pilar_tpl in select * from public.pilares_pesv_template order by orden loop
+    insert into public.pilares_pesv (empresa_id, orden, nombre, descripcion)
+    values (new_empresa.id, pilar_tpl.orden, pilar_tpl.nombre, pilar_tpl.descripcion)
+    returning id into new_pilar_id;
+    pilar_map := pilar_map || jsonb_build_object(pilar_tpl.id::text, new_pilar_id);
+  end loop;
+
+  -- Copiar requisitos del PESV, resolviendo el pilar nuevo con el mapa.
+  insert into public.requisitos_pesv (empresa_id, pilar_id, fase_id, codigo, descripcion, fuente_normativa, orden)
+  select
+    new_empresa.id,
+    (pilar_map ->> r.pilar_template_id::text)::integer,
+    r.fase_id, r.codigo, r.descripcion, r.fuente_normativa, r.orden
+  from public.requisitos_pesv_template r;
+
+  -- Copiar los estándares del SG-SST (no dependen de pilares).
+  insert into public.estandares_sgsst (empresa_id, fase_id, componente, codigo, descripcion, puntaje, orden)
+  select new_empresa.id, fase_id, componente, codigo, descripcion, puntaje, orden
+  from public.estandares_sgsst_template;
+
+  return new_empresa;
+end;
+$$;
+
+
+-- ---------------------------------------------------------------------
+-- 3) CICLO PHVA (catálogo global, fijo, compartido por todas)
+-- ---------------------------------------------------------------------
 create table public.fases_phva (
   id serial primary key,
   orden integer not null,
   nombre text not null check (nombre in ('Planear', 'Hacer', 'Verificar', 'Actuar'))
 );
 
-alter table public.pilares_pesv enable row level security;
 alter table public.fases_phva enable row level security;
 
-create policy "Ver pilares PESV si estoy registrado"
-  on public.pilares_pesv for select using (public.is_registered());
-create policy "Crear pilares PESV si soy editor"
-  on public.pilares_pesv for insert with check (public.is_editor());
-create policy "Editar pilares PESV si soy editor"
-  on public.pilares_pesv for update using (public.is_editor());
-create policy "Borrar pilares PESV si soy super admin"
-  on public.pilares_pesv for delete using (public.is_super_admin());
-
-create policy "Ver fases PHVA si estoy registrado"
-  on public.fases_phva for select using (public.is_registered());
+create policy "Ver fases PHVA si estoy logueado"
+  on public.fases_phva for select using (auth.uid() is not null);
 
 
 -- ---------------------------------------------------------------------
--- 4) CHECKLIST NORMATIVO: REQUISITOS PESV Y ESTÁNDARES SG-SST
+-- 4) PLANTILLA BASE del PESV y del SG-SST (catálogo global de partida)
 -- ---------------------------------------------------------------------
--- "requisitos_pesv": catálogo de acciones/requisitos del Plan
--- Estratégico de Seguridad Vial, agrupados por pilar y por fase PHVA.
+-- Estas tablas "_template" NO son las que usa cada empresa día a día
+-- — son el punto de partida que se copia (ver create_empresa() arriba)
+-- cada vez que se crea una empresa nueva. Cada empresa después edita
+-- SU PROPIA copia sin afectar a las demás ni a esta plantilla.
+create table public.pilares_pesv_template (
+  id serial primary key,
+  orden integer not null,
+  nombre text not null,
+  descripcion text
+);
+
+create table public.requisitos_pesv_template (
+  id uuid primary key default gen_random_uuid(),
+  pilar_template_id integer not null references public.pilares_pesv_template(id),
+  fase_id integer references public.fases_phva(id),
+  codigo text,
+  descripcion text not null,
+  fuente_normativa text,
+  orden integer not null default 0
+);
+
+create table public.estandares_sgsst_template (
+  id uuid primary key default gen_random_uuid(),
+  fase_id integer references public.fases_phva(id),
+  componente text not null,
+  codigo text not null,
+  descripcion text not null,
+  puntaje numeric(4, 2) not null default 0,
+  orden integer not null default 0
+);
+
+alter table public.pilares_pesv_template enable row level security;
+alter table public.requisitos_pesv_template enable row level security;
+alter table public.estandares_sgsst_template enable row level security;
+
+create policy "Ver plantilla de pilares si estoy logueado"
+  on public.pilares_pesv_template for select using (auth.uid() is not null);
+create policy "Ver plantilla de requisitos si estoy logueado"
+  on public.requisitos_pesv_template for select using (auth.uid() is not null);
+create policy "Ver plantilla de estándares si estoy logueado"
+  on public.estandares_sgsst_template for select using (auth.uid() is not null);
+
+
+-- ---------------------------------------------------------------------
+-- 5) CATÁLOGO DE CADA EMPRESA: pilares, requisitos PESV y estándares SG-SST
+-- ---------------------------------------------------------------------
+-- Esta es la copia PROPIA de cada empresa (creada por create_empresa()
+-- a partir de las tablas "_template"). Totalmente editable desde la
+-- pantalla, sin afectar a otras empresas.
+create table public.pilares_pesv (
+  id serial primary key,
+  empresa_id uuid not null references public.empresas(id) on delete cascade,
+  orden integer not null,
+  nombre text not null,
+  descripcion text,
+  activo boolean not null default true
+);
+
 create table public.requisitos_pesv (
   id uuid primary key default gen_random_uuid(),
-  pilar_id integer not null references public.pilares_pesv(id),
+  empresa_id uuid not null references public.empresas(id) on delete cascade,
+  pilar_id integer not null references public.pilares_pesv(id) on delete cascade,
   fase_id integer references public.fases_phva(id),
   codigo text,
   descripcion text not null,
@@ -226,11 +382,9 @@ create table public.requisitos_pesv (
   created_at timestamptz not null default now()
 );
 
--- "estandares_sgsst": catálogo de los estándares mínimos del SG-SST
--- (Resolución 0312 de 2019), agrupados por componente y por fase PHVA,
--- con el puntaje que cada uno aporta sobre 100.
 create table public.estandares_sgsst (
   id uuid primary key default gen_random_uuid(),
+  empresa_id uuid not null references public.empresas(id) on delete cascade,
   fase_id integer references public.fases_phva(id),
   componente text not null,
   codigo text not null,
@@ -241,38 +395,44 @@ create table public.estandares_sgsst (
   created_at timestamptz not null default now()
 );
 
+alter table public.pilares_pesv enable row level security;
 alter table public.requisitos_pesv enable row level security;
 alter table public.estandares_sgsst enable row level security;
 
-create policy "Ver requisitos PESV si estoy registrado"
-  on public.requisitos_pesv for select using (public.is_registered());
-create policy "Crear/editar requisitos PESV si soy editor"
-  on public.requisitos_pesv for insert with check (public.is_editor());
-create policy "Editar requisitos PESV si soy editor (update)"
-  on public.requisitos_pesv for update using (public.is_editor());
-create policy "Borrar requisitos PESV si soy super admin"
-  on public.requisitos_pesv for delete using (public.is_super_admin());
+create policy "Ver pilares de mis empresas"
+  on public.pilares_pesv for select using (public.is_empresa_member(empresa_id));
+create policy "Crear pilares si soy editor de la empresa"
+  on public.pilares_pesv for insert with check (public.is_empresa_editor(empresa_id));
+create policy "Editar pilares si soy editor de la empresa"
+  on public.pilares_pesv for update using (public.is_empresa_editor(empresa_id));
+create policy "Borrar pilares si soy admin de la empresa"
+  on public.pilares_pesv for delete using (public.is_empresa_admin(empresa_id));
 
-create policy "Ver estándares SG-SST si estoy registrado"
-  on public.estandares_sgsst for select using (public.is_registered());
-create policy "Crear estándares SG-SST si soy editor"
-  on public.estandares_sgsst for insert with check (public.is_editor());
-create policy "Editar estándares SG-SST si soy editor"
-  on public.estandares_sgsst for update using (public.is_editor());
-create policy "Borrar estándares SG-SST si soy super admin"
-  on public.estandares_sgsst for delete using (public.is_super_admin());
+create policy "Ver requisitos PESV de mis empresas"
+  on public.requisitos_pesv for select using (public.is_empresa_member(empresa_id));
+create policy "Crear requisitos PESV si soy editor de la empresa"
+  on public.requisitos_pesv for insert with check (public.is_empresa_editor(empresa_id));
+create policy "Editar requisitos PESV si soy editor de la empresa"
+  on public.requisitos_pesv for update using (public.is_empresa_editor(empresa_id));
+create policy "Borrar requisitos PESV si soy admin de la empresa"
+  on public.requisitos_pesv for delete using (public.is_empresa_admin(empresa_id));
+
+create policy "Ver estándares SG-SST de mis empresas"
+  on public.estandares_sgsst for select using (public.is_empresa_member(empresa_id));
+create policy "Crear estándares SG-SST si soy editor de la empresa"
+  on public.estandares_sgsst for insert with check (public.is_empresa_editor(empresa_id));
+create policy "Editar estándares SG-SST si soy editor de la empresa"
+  on public.estandares_sgsst for update using (public.is_empresa_editor(empresa_id));
+create policy "Borrar estándares SG-SST si soy admin de la empresa"
+  on public.estandares_sgsst for delete using (public.is_empresa_admin(empresa_id));
 
 
 -- ---------------------------------------------------------------------
--- 5) SEGUIMIENTO DE CUMPLIMIENTO (el corazón de NEXUS)
+-- 6) SEGUIMIENTO DE CUMPLIMIENTO (por empresa)
 -- ---------------------------------------------------------------------
--- Una fila por cada requisito PESV o estándar SG-SST, con su estado
--- real de avance, responsable, fecha límite y observaciones. Se crea
--- SOLA (con un disparador/trigger) cada vez que se agrega un requisito
--- o un estándar nuevo al catálogo — así nunca falta el seguimiento de
--- un ítem nuevo que agregue el equipo legal/HSEQ desde la pantalla.
 create table public.cumplimiento_items (
   id uuid primary key default gen_random_uuid(),
+  empresa_id uuid not null references public.empresas(id) on delete cascade,
   tipo text not null check (tipo in ('pesv', 'sgsst')),
   requisito_pesv_id uuid references public.requisitos_pesv(id) on delete cascade,
   estandar_sgsst_id uuid references public.estandares_sgsst(id) on delete cascade,
@@ -298,18 +458,18 @@ create trigger cumplimiento_items_set_updated_at
   before update on public.cumplimiento_items
   for each row execute procedure public.set_updated_at();
 
-create policy "Ver cumplimiento si estoy registrado"
-  on public.cumplimiento_items for select using (public.is_registered());
-create policy "Editar cumplimiento si soy editor"
-  on public.cumplimiento_items for update using (public.is_editor());
+create policy "Ver cumplimiento de mis empresas"
+  on public.cumplimiento_items for select using (public.is_empresa_member(empresa_id));
+create policy "Editar cumplimiento si soy editor de la empresa"
+  on public.cumplimiento_items for update using (public.is_empresa_editor(empresa_id));
 
 -- Crea automáticamente la fila de seguimiento cuando se agrega un
--- requisito PESV o un estándar SG-SST nuevo al catálogo.
+-- requisito PESV o un estándar SG-SST nuevo al catálogo de una empresa.
 create or replace function public.crear_cumplimiento_pesv()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
-  insert into public.cumplimiento_items (tipo, requisito_pesv_id)
-  values ('pesv', new.id);
+  insert into public.cumplimiento_items (empresa_id, tipo, requisito_pesv_id)
+  values (new.empresa_id, 'pesv', new.id);
   return new;
 end;
 $$;
@@ -321,8 +481,8 @@ create trigger trg_requisito_pesv_insert
 create or replace function public.crear_cumplimiento_sgsst()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
-  insert into public.cumplimiento_items (tipo, estandar_sgsst_id)
-  values ('sgsst', new.id);
+  insert into public.cumplimiento_items (empresa_id, tipo, estandar_sgsst_id)
+  values (new.empresa_id, 'sgsst', new.id);
   return new;
 end;
 $$;
@@ -333,13 +493,15 @@ create trigger trg_estandar_sgsst_insert
 
 
 -- ---------------------------------------------------------------------
--- 6) EVIDENCIAS (documentos de soporte)
+-- 7) EVIDENCIAS (documentos de soporte)
 -- ---------------------------------------------------------------------
--- El archivo en sí se guarda en Supabase Storage, en un bucket PRIVADO
--- llamado "evidencias" (hay que crearlo a mano — ver README.md, Paso
--- 3). Esta tabla solo guarda la referencia al archivo.
+-- El archivo en sí se guarda en Supabase Storage, bucket privado
+-- "evidencias", en la ruta "<empresa_id>/<cumplimiento_item_id>/archivo"
+-- — así las reglas de Storage (ver migrations/002) pueden saber de
+-- qué empresa es cada archivo con solo mirar la ruta.
 create table public.evidencias (
   id uuid primary key default gen_random_uuid(),
+  empresa_id uuid not null references public.empresas(id) on delete cascade,
   cumplimiento_item_id uuid not null references public.cumplimiento_items(id) on delete cascade,
   nombre_archivo text not null,
   ruta_storage text not null,
@@ -349,20 +511,36 @@ create table public.evidencias (
 
 alter table public.evidencias enable row level security;
 
-create policy "Ver evidencias si estoy registrado"
-  on public.evidencias for select using (public.is_registered());
-create policy "Subir evidencias si soy editor"
-  on public.evidencias for insert with check (public.is_editor());
-create policy "Borrar evidencias si soy editor"
-  on public.evidencias for delete using (public.is_editor());
+-- El empresa_id se calcula solo, a partir del ítem de cumplimiento —
+-- así no hay que confiar en lo que mande la pantalla.
+create or replace function public.set_evidencia_empresa()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  select empresa_id into new.empresa_id
+  from public.cumplimiento_items where id = new.cumplimiento_item_id;
+  return new;
+end;
+$$;
+
+create trigger trg_evidencia_empresa
+  before insert on public.evidencias
+  for each row execute procedure public.set_evidencia_empresa();
+
+create policy "Ver evidencias de mis empresas"
+  on public.evidencias for select using (public.is_empresa_member(empresa_id));
+create policy "Subir evidencias si soy editor de la empresa"
+  on public.evidencias for insert with check (public.is_empresa_editor(empresa_id));
+create policy "Borrar evidencias si soy editor de la empresa"
+  on public.evidencias for delete using (public.is_empresa_editor(empresa_id));
 
 
 -- ---------------------------------------------------------------------
--- 7) VEHÍCULOS
+-- 8) VEHÍCULOS (por empresa)
 -- ---------------------------------------------------------------------
 create table public.vehiculos (
   id uuid primary key default gen_random_uuid(),
-  placa text not null unique,
+  empresa_id uuid not null references public.empresas(id) on delete cascade,
+  placa text not null,
   tipo_vehiculo text,
   marca text,
   modelo_anio integer,
@@ -375,7 +553,8 @@ create table public.vehiculos (
     check (estado in ('activo', 'mantenimiento', 'inactivo', 'retirado')),
   observaciones text,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  unique (empresa_id, placa)
 );
 
 alter table public.vehiculos enable row level security;
@@ -384,23 +563,24 @@ create trigger vehiculos_set_updated_at
   before update on public.vehiculos
   for each row execute procedure public.set_updated_at();
 
-create policy "Ver vehículos si estoy registrado"
-  on public.vehiculos for select using (public.is_registered());
-create policy "Crear vehículos si soy editor"
-  on public.vehiculos for insert with check (public.is_editor());
-create policy "Editar vehículos si soy editor"
-  on public.vehiculos for update using (public.is_editor());
-create policy "Borrar vehículos si soy super admin"
-  on public.vehiculos for delete using (public.is_super_admin());
+create policy "Ver vehículos de mis empresas"
+  on public.vehiculos for select using (public.is_empresa_member(empresa_id));
+create policy "Crear vehículos si soy editor de la empresa"
+  on public.vehiculos for insert with check (public.is_empresa_editor(empresa_id));
+create policy "Editar vehículos si soy editor de la empresa"
+  on public.vehiculos for update using (public.is_empresa_editor(empresa_id));
+create policy "Borrar vehículos si soy admin de la empresa"
+  on public.vehiculos for delete using (public.is_empresa_admin(empresa_id));
 
 
 -- ---------------------------------------------------------------------
--- 8) CONDUCTORES
+-- 9) CONDUCTORES (por empresa)
 -- ---------------------------------------------------------------------
 create table public.conductores (
   id uuid primary key default gen_random_uuid(),
+  empresa_id uuid not null references public.empresas(id) on delete cascade,
   nombre_completo text not null,
-  numero_documento text not null unique,
+  numero_documento text not null,
   telefono text,
   categoria_licencia text,
   fecha_vencimiento_licencia date,
@@ -412,7 +592,8 @@ create table public.conductores (
     check (estado in ('activo', 'inactivo', 'retirado')),
   observaciones text,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  unique (empresa_id, numero_documento)
 );
 
 alter table public.conductores enable row level security;
@@ -421,21 +602,22 @@ create trigger conductores_set_updated_at
   before update on public.conductores
   for each row execute procedure public.set_updated_at();
 
-create policy "Ver conductores si estoy registrado"
-  on public.conductores for select using (public.is_registered());
-create policy "Crear conductores si soy editor"
-  on public.conductores for insert with check (public.is_editor());
-create policy "Editar conductores si soy editor"
-  on public.conductores for update using (public.is_editor());
-create policy "Borrar conductores si soy super admin"
-  on public.conductores for delete using (public.is_super_admin());
+create policy "Ver conductores de mis empresas"
+  on public.conductores for select using (public.is_empresa_member(empresa_id));
+create policy "Crear conductores si soy editor de la empresa"
+  on public.conductores for insert with check (public.is_empresa_editor(empresa_id));
+create policy "Editar conductores si soy editor de la empresa"
+  on public.conductores for update using (public.is_empresa_editor(empresa_id));
+create policy "Borrar conductores si soy admin de la empresa"
+  on public.conductores for delete using (public.is_empresa_admin(empresa_id));
 
 
 -- ---------------------------------------------------------------------
--- 9) CAPACITACIONES
+-- 10) CAPACITACIONES (por empresa)
 -- ---------------------------------------------------------------------
 create table public.capacitaciones (
   id uuid primary key default gen_random_uuid(),
+  empresa_id uuid not null references public.empresas(id) on delete cascade,
   tema text not null,
   tipo text not null default 'otra' check (tipo in ('pesv', 'sgsst', 'otra')),
   fecha date not null,
@@ -455,30 +637,51 @@ create table public.capacitacion_asistentes (
 alter table public.capacitaciones enable row level security;
 alter table public.capacitacion_asistentes enable row level security;
 
-create policy "Ver capacitaciones si estoy registrado"
-  on public.capacitaciones for select using (public.is_registered());
-create policy "Crear capacitaciones si soy editor"
-  on public.capacitaciones for insert with check (public.is_editor());
-create policy "Editar capacitaciones si soy editor"
-  on public.capacitaciones for update using (public.is_editor());
-create policy "Borrar capacitaciones si soy super admin"
-  on public.capacitaciones for delete using (public.is_super_admin());
+create policy "Ver capacitaciones de mis empresas"
+  on public.capacitaciones for select using (public.is_empresa_member(empresa_id));
+create policy "Crear capacitaciones si soy editor de la empresa"
+  on public.capacitaciones for insert with check (public.is_empresa_editor(empresa_id));
+create policy "Editar capacitaciones si soy editor de la empresa"
+  on public.capacitaciones for update using (public.is_empresa_editor(empresa_id));
+create policy "Borrar capacitaciones si soy admin de la empresa"
+  on public.capacitaciones for delete using (public.is_empresa_admin(empresa_id));
 
-create policy "Ver asistentes si estoy registrado"
-  on public.capacitacion_asistentes for select using (public.is_registered());
-create policy "Registrar asistentes si soy editor"
-  on public.capacitacion_asistentes for insert with check (public.is_editor());
-create policy "Editar asistentes si soy editor"
-  on public.capacitacion_asistentes for update using (public.is_editor());
-create policy "Quitar asistentes si soy editor"
-  on public.capacitacion_asistentes for delete using (public.is_editor());
+create policy "Ver asistentes de mis empresas"
+  on public.capacitacion_asistentes for select using (
+    exists (
+      select 1 from public.capacitaciones c
+      where c.id = capacitacion_id and public.is_empresa_member(c.empresa_id)
+    )
+  );
+create policy "Registrar asistentes si soy editor de la empresa"
+  on public.capacitacion_asistentes for insert with check (
+    exists (
+      select 1 from public.capacitaciones c
+      where c.id = capacitacion_id and public.is_empresa_editor(c.empresa_id)
+    )
+  );
+create policy "Editar asistentes si soy editor de la empresa"
+  on public.capacitacion_asistentes for update using (
+    exists (
+      select 1 from public.capacitaciones c
+      where c.id = capacitacion_id and public.is_empresa_editor(c.empresa_id)
+    )
+  );
+create policy "Quitar asistentes si soy editor de la empresa"
+  on public.capacitacion_asistentes for delete using (
+    exists (
+      select 1 from public.capacitaciones c
+      where c.id = capacitacion_id and public.is_empresa_editor(c.empresa_id)
+    )
+  );
 
 
 -- ---------------------------------------------------------------------
--- 10) INCIDENTES Y ACCIDENTES (viales y laborales)
+-- 11) INCIDENTES Y ACCIDENTES (por empresa)
 -- ---------------------------------------------------------------------
 create table public.incidentes (
   id uuid primary key default gen_random_uuid(),
+  empresa_id uuid not null references public.empresas(id) on delete cascade,
   tipo text not null check (tipo in ('transito', 'laboral')),
   clasificacion text
     check (clasificacion in ('incidente', 'solo_danos', 'accidente_leve', 'accidente_grave', 'accidente_mortal')),
@@ -501,23 +704,23 @@ create trigger incidentes_set_updated_at
   before update on public.incidentes
   for each row execute procedure public.set_updated_at();
 
-create policy "Ver incidentes si estoy registrado"
-  on public.incidentes for select using (public.is_registered());
-create policy "Reportar incidentes si estoy registrado"
-  on public.incidentes for insert with check (public.is_registered() and reportado_por = auth.uid());
-create policy "Editar incidentes si soy editor"
-  on public.incidentes for update using (public.is_editor());
-create policy "Borrar incidentes si soy super admin"
-  on public.incidentes for delete using (public.is_super_admin());
+create policy "Ver incidentes de mis empresas"
+  on public.incidentes for select using (public.is_empresa_member(empresa_id));
+create policy "Reportar incidentes si soy miembro de la empresa"
+  on public.incidentes for insert
+  with check (public.is_empresa_member(empresa_id) and reportado_por = auth.uid());
+create policy "Editar incidentes si soy editor de la empresa"
+  on public.incidentes for update using (public.is_empresa_editor(empresa_id));
+create policy "Borrar incidentes si soy admin de la empresa"
+  on public.incidentes for delete using (public.is_empresa_admin(empresa_id));
 
 
 -- ---------------------------------------------------------------------
--- 11) PLANES DE ACCIÓN (correctivos/preventivos)
+-- 12) PLANES DE ACCIÓN (por empresa)
 -- ---------------------------------------------------------------------
--- Pueden nacer de un incidente, de una auditoría o de un ítem de
--- cumplimiento que quedó con hallazgos.
 create table public.plan_accion (
   id uuid primary key default gen_random_uuid(),
+  empresa_id uuid not null references public.empresas(id) on delete cascade,
   origen text not null default 'otro' check (origen in ('incidente', 'auditoria', 'cumplimiento', 'otro')),
   incidente_id uuid references public.incidentes(id) on delete cascade,
   cumplimiento_item_id uuid references public.cumplimiento_items(id) on delete cascade,
@@ -536,69 +739,14 @@ create trigger plan_accion_set_updated_at
   before update on public.plan_accion
   for each row execute procedure public.set_updated_at();
 
-create policy "Ver planes de acción si estoy registrado"
-  on public.plan_accion for select using (public.is_registered());
-create policy "Crear planes de acción si soy editor"
-  on public.plan_accion for insert with check (public.is_editor());
-create policy "Editar planes de acción si soy editor"
-  on public.plan_accion for update using (public.is_editor());
-create policy "Borrar planes de acción si soy super admin"
-  on public.plan_accion for delete using (public.is_super_admin());
-
-
--- ---------------------------------------------------------------------
--- 12) INDICADORES (vistas calculadas)
--- ---------------------------------------------------------------------
--- % de avance del PESV, por pilar. Los ítems marcados "no_aplica" no
--- cuentan ni en el numerador ni en el denominador.
-create or replace view public.v_avance_pesv as
-select
-  p.id as pilar_id,
-  p.orden,
-  p.nombre as pilar,
-  count(ci.id) as total_requisitos,
-  count(ci.id) filter (where ci.estado = 'cumplido') as cumplidos,
-  count(ci.id) filter (where ci.estado = 'no_aplica') as no_aplica,
-  case
-    when count(ci.id) filter (where ci.estado <> 'no_aplica') = 0 then 0
-    else round(
-      100.0 * count(ci.id) filter (where ci.estado = 'cumplido')
-      / count(ci.id) filter (where ci.estado <> 'no_aplica')
-    )
-  end as porcentaje_avance
-from public.pilares_pesv p
-left join public.requisitos_pesv r on r.pilar_id = p.id and r.activo
-left join public.cumplimiento_items ci on ci.requisito_pesv_id = r.id
-group by p.id, p.orden, p.nombre
-order by p.orden;
-
--- % de avance del SG-SST, ponderado por el puntaje oficial de cada
--- estándar (igual que exige la Resolución 0312 de 2019: no todos los
--- estándares valen lo mismo).
-create or replace view public.v_avance_sgsst as
-select
-  coalesce(sum(e.puntaje) filter (where ci.estado = 'cumplido'), 0) as puntaje_obtenido,
-  coalesce(sum(e.puntaje) filter (where ci.estado <> 'no_aplica'), 0) as puntaje_aplicable,
-  case
-    when coalesce(sum(e.puntaje) filter (where ci.estado <> 'no_aplica'), 0) = 0 then 0
-    else round(
-      100.0 * sum(e.puntaje) filter (where ci.estado = 'cumplido')
-      / sum(e.puntaje) filter (where ci.estado <> 'no_aplica'),
-      1
-    )
-  end as porcentaje_avance
-from public.estandares_sgsst e
-left join public.cumplimiento_items ci on ci.estandar_sgsst_id = e.id
-where e.activo;
-
--- No llevan RLS propia (las vistas no la admiten) — son agregados de
--- toda la empresa, sin datos de una persona en particular, así que se
--- exponen a cualquier usuario registrado. Las tablas que sí tienen
--- datos detallados (cumplimiento_items, requisitos_pesv, etc.) ya
--- están protegidas arriba.
-grant select on public.v_avance_pesv to authenticated;
-grant select on public.v_avance_sgsst to authenticated;
-
+create policy "Ver planes de acción de mis empresas"
+  on public.plan_accion for select using (public.is_empresa_member(empresa_id));
+create policy "Crear planes de acción si soy editor de la empresa"
+  on public.plan_accion for insert with check (public.is_empresa_editor(empresa_id));
+create policy "Editar planes de acción si soy editor de la empresa"
+  on public.plan_accion for update using (public.is_empresa_editor(empresa_id));
+create policy "Borrar planes de acción si soy admin de la empresa"
+  on public.plan_accion for delete using (public.is_empresa_admin(empresa_id));
 
 -- =====================================================================
 -- FIN DEL ESQUEMA — sigue con supabase/seed.sql

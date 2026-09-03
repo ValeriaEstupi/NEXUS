@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "../../../lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "./_shared";
 
 function toPayload(data) {
@@ -18,7 +18,7 @@ function toPayload(data) {
   };
 }
 
-export async function createIncidente(data) {
+export async function createIncidente(empresaId, data) {
   const supabase = createClient();
   const user = await requireUser(supabase);
 
@@ -29,19 +29,19 @@ export async function createIncidente(data) {
 
   const { error } = await supabase
     .from("incidentes")
-    .insert({ ...payload, reportado_por: user.id });
+    .insert({ ...payload, empresa_id: empresaId, reportado_por: user.id });
 
   if (error) {
     return { error: error.message };
   }
 
-  revalidatePath("/dashboard/incidentes");
-  revalidatePath("/dashboard");
-  revalidatePath("/dashboard/indicadores");
+  revalidatePath(`/dashboard/empresas/${empresaId}/incidentes`);
+  revalidatePath(`/dashboard/empresas/${empresaId}`);
+  revalidatePath(`/dashboard/empresas/${empresaId}/indicadores`);
   return { success: true };
 }
 
-export async function updateIncidente(id, data) {
+export async function updateIncidente(id, data, empresaId) {
   const supabase = createClient();
   await requireUser(supabase);
 
@@ -59,12 +59,14 @@ export async function updateIncidente(id, data) {
     return { error: error.message };
   }
 
-  revalidatePath("/dashboard/incidentes");
-  revalidatePath("/dashboard/indicadores");
+  if (empresaId) {
+    revalidatePath(`/dashboard/empresas/${empresaId}/incidentes`);
+    revalidatePath(`/dashboard/empresas/${empresaId}/indicadores`);
+  }
   return { success: true };
 }
 
-export async function deleteIncidente(id) {
+export async function deleteIncidente(id, empresaId) {
   const supabase = createClient();
   await requireUser(supabase);
 
@@ -74,7 +76,9 @@ export async function deleteIncidente(id) {
     return { error: error.message };
   }
 
-  revalidatePath("/dashboard/incidentes");
-  revalidatePath("/dashboard/indicadores");
+  if (empresaId) {
+    revalidatePath(`/dashboard/empresas/${empresaId}/incidentes`);
+    revalidatePath(`/dashboard/empresas/${empresaId}/indicadores`);
+  }
   return { success: true };
 }
