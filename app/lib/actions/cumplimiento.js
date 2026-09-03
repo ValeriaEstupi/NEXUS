@@ -4,10 +4,18 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "./_shared";
 
+function revalidateIso(empresaId) {
+  revalidatePath(`/dashboard/empresas/${empresaId}/iso-9001`);
+  revalidatePath(`/dashboard/empresas/${empresaId}/iso-14001`);
+  revalidatePath(`/dashboard/empresas/${empresaId}/iso-45001`);
+}
+
 function revalidateEmpresa(empresaId) {
   revalidatePath(`/dashboard/empresas/${empresaId}/pesv`);
   revalidatePath(`/dashboard/empresas/${empresaId}/sgsst`);
-  revalidatePath(`/dashboard/empresas/${empresaId}/iso`);
+  revalidatePath(`/dashboard/empresas/${empresaId}/iso-9001`);
+  revalidatePath(`/dashboard/empresas/${empresaId}/iso-14001`);
+  revalidatePath(`/dashboard/empresas/${empresaId}/iso-45001`);
   revalidatePath(`/dashboard/empresas/${empresaId}`);
 }
 
@@ -306,7 +314,7 @@ export async function addRequisitoIso({ empresaId, normaId, faseId, codigo, desc
     return { error: error.message };
   }
 
-  revalidatePath(`/dashboard/empresas/${empresaId}/iso`);
+  revalidateIso(empresaId);
   return { success: true };
 }
 
@@ -333,7 +341,7 @@ export async function updateRequisitoIso(id, updates, empresaId) {
     return { error: error.message };
   }
 
-  if (empresaId) revalidatePath(`/dashboard/empresas/${empresaId}/iso`);
+  if (empresaId) revalidateIso(empresaId);
   return { success: true };
 }
 
@@ -348,6 +356,6 @@ export async function deleteRequisitoIso(id, empresaId) {
     return { error: error.message };
   }
 
-  if (empresaId) revalidatePath(`/dashboard/empresas/${empresaId}/iso`);
+  if (empresaId) revalidateIso(empresaId);
   return { success: true };
 }

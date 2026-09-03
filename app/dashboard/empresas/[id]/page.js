@@ -18,6 +18,7 @@ export default async function EmpresaResumenPage({ params }) {
     { data: requisitos },
     { data: estandares },
     { data: requisitosIso },
+    { data: normasIso },
     { count: totalVehiculos },
     { count: totalConductores },
     { data: vehiculos },
@@ -35,8 +36,9 @@ export default async function EmpresaResumenPage({ params }) {
       .eq("empresa_id", empresaId),
     supabase
       .from("requisitos_iso")
-      .select("activo, cumplimiento_items(estado)")
+      .select("norma_id, activo, cumplimiento_items(estado)")
       .eq("empresa_id", empresaId),
+    supabase.from("normas_iso").select("id, codigo, nombre").order("orden"),
     supabase.from("vehiculos").select("id", { count: "exact", head: true }).eq("empresa_id", empresaId),
     supabase.from("conductores").select("id", { count: "exact", head: true }).eq("empresa_id", empresaId),
     supabase
@@ -62,10 +64,13 @@ export default async function EmpresaResumenPage({ params }) {
     .reduce((s, e) => s + Number(e.puntaje), 0);
   const avanceSgsstGlobal = puntajeAplicable > 0 ? Math.round((puntajeObtenido / puntajeAplicable) * 100) : 0;
 
-  const requisitosIsoActivos = (requisitosIso || []).filter((r) => r.activo);
-  const totalIso = requisitosIsoActivos.length;
-  const cumplidosIso = requisitosIsoActivos.filter((r) => r.cumplimiento_items?.[0]?.estado === "cumplido").length;
-  const avanceIsoGlobal = totalIso > 0 ? Math.round((cumplidosIso / totalIso) * 100) : 0;
+  // Avance de cada norma ISO por separado (9001, 14001, 45001).
+  const avancePorNorma = {};
+  for (const norma of normasIso || []) {
+    const items = (requisitosIso || []).filter((r) => r.norma_id === norma.id && r.activo);
+    const cumplidos = items.filter((r) => r.cumplimiento_items?.[0]?.estado === "cumplido").length;
+    avancePorNorma[norma.codigo] = items.length > 0 ? Math.round((cumplidos / items.length) * 100) : 0;
+  }
 
   let alertasVencimiento = 0;
   for (const v of vehiculos || []) {
@@ -93,9 +98,17 @@ export default async function EmpresaResumenPage({ params }) {
           <div className="stat-label">Calificación SG-SST</div>
           <div className="stat-value">{avanceSgsstGlobal}%</div>
         </Link>
-        <Link href={`${base}/iso`} className="stat-card" style={{ textDecoration: "none", color: "inherit" }}>
-          <div className="stat-label">Avance ISO 9001·14001·45001</div>
-          <div className="stat-value">{avanceIsoGlobal}%</div>
+        <Link href={`${base}/iso-9001`} className="stat-card" style={{ textDecoration: "none", color: "inherit" }}>
+          <div className="stat-label">ISO 9001 (Calidad)</div>
+          <div className="stat-value">{avancePorNorma["9001"] || 0}%</div>
+        </Link>
+        <Link href={`${base}/iso-14001`} className="stat-card" style={{ textDecoration: "none", color: "inherit" }}>
+          <div className="stat-label">ISO 14001 (Ambiental)</div>
+          <div className="stat-value">{avancePorNorma["14001"] || 0}%</div>
+        </Link>
+        <Link href={`${base}/iso-45001`} className="stat-card" style={{ textDecoration: "none", color: "inherit" }}>
+          <div className="stat-label">ISO 45001 (SST)</div>
+          <div className="stat-value">{avancePorNorma["45001"] || 0}%</div>
         </Link>
         <Link href={`${base}/vehiculos`} className="stat-card" style={{ textDecoration: "none", color: "inherit" }}>
           <div className="stat-label">Vehículos</div>
@@ -128,7 +141,9 @@ export default async function EmpresaResumenPage({ params }) {
         <div className="stat-grid">
           <Link href={`${base}/pesv`} className="button-like">Checklist PESV</Link>
           <Link href={`${base}/sgsst`} className="button-like">Checklist SG-SST</Link>
-          <Link href={`${base}/iso`} className="button-like">Checklist ISO</Link>
+          <Link href={`${base}/iso-9001`} className="button-like">Checklist ISO 9001</Link>
+          <Link href={`${base}/iso-14001`} className="button-like">Checklist ISO 14001</Link>
+          <Link href={`${base}/iso-45001`} className="button-like">Checklist ISO 45001</Link>
           <Link href={`${base}/incidentes`} className="button-like">Reportar incidente</Link>
           <Link href={`${base}/indicadores`} className="button-like">Ver indicadores</Link>
         </div>
