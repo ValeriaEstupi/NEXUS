@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getEmpresaRole } from "@/app/lib/empresaRole";
+import { GraduationCapIcon } from "@/app/dashboard/Icons";
 import CapacitacionRow from "./CapacitacionRow";
 import NewCapacitacionForm from "./NewCapacitacionForm";
 
@@ -26,7 +27,7 @@ export default async function CapacitacionesPage({ params }) {
 
   return (
     <div className="page-body">
-      <h1>🎓 Capacitaciones</h1>
+      <h1 className="icon-heading"><GraduationCapIcon size={26} /> Capacitaciones</h1>
       <p className="page-intro">
         Capacitación en seguridad vial (PESV) y en SG-SST, con la lista de
         conductores que asistieron a cada una.

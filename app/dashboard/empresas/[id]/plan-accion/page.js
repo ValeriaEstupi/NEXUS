@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getEmpresaRole } from "@/app/lib/empresaRole";
+import { CheckSquareIcon } from "@/app/dashboard/Icons";
 import PlanAccionRow from "./PlanAccionRow";
 import NewPlanAccionForm from "./NewPlanAccionForm";
 
@@ -27,7 +28,7 @@ export default async function PlanAccionPage({ params }) {
 
   return (
     <div className="page-body">
-      <h1>✅ Planes de acción</h1>
+      <h1 className="icon-heading"><CheckSquareIcon size={26} /> Planes de acción</h1>
       <p className="page-intro">
         Acciones correctivas y preventivas que nacen de un incidente, una
         auditoría o un hallazgo de cumplimiento.

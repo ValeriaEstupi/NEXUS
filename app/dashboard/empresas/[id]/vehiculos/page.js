@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getEmpresaRole } from "@/app/lib/empresaRole";
+import { TruckIcon } from "@/app/dashboard/Icons";
 import VehiculoRow from "./VehiculoRow";
 import NewVehiculoForm from "./NewVehiculoForm";
 
@@ -21,7 +22,7 @@ export default async function VehiculosPage({ params }) {
 
   return (
     <div className="page-body">
-      <h1>🚐 Vehículos</h1>
+      <h1 className="icon-heading"><TruckIcon size={26} /> Vehículos</h1>
       <p className="page-intro">
         Flota de la empresa: documentos vigentes, mantenimiento y estado
         operativo de cada vehículo.

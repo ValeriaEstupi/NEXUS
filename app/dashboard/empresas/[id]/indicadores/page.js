@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { estadoVencimiento } from "@/app/lib/helpers";
+import { BarChartIcon } from "@/app/dashboard/Icons";
 
 export const dynamic = "force-dynamic";
 
@@ -127,7 +128,7 @@ export default async function IndicadoresPage({ params }) {
 
   return (
     <div className="page-body">
-      <h1>📊 Indicadores</h1>
+      <h1 className="icon-heading"><BarChartIcon size={26} /> Indicadores</h1>
       <p className="page-intro">
         Vista consolidada del avance normativo y de la accidentalidad.
       </p>

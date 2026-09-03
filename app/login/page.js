@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "../../lib/supabase/client";
+import { ShieldIcon } from "@/app/dashboard/Icons";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -58,7 +59,17 @@ export default function LoginPage() {
   return (
     <div className="page-center">
       <div className="card">
-        <h1 style={{ textAlign: "center" }}>🛡️ NEXUS</h1>
+        <h1
+          style={{
+            textAlign: "center",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+          }}
+        >
+          <ShieldIcon size={24} /> NEXUS
+        </h1>
         <p className="subtitle" style={{ textAlign: "center" }}>
           {mode === "signin"
             ? "Seguimiento del PESV y del SG-SST. Entra con tu correo y contraseña."

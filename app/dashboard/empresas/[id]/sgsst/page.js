@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { withSignedUrls } from "@/app/lib/evidencias";
 import { getEmpresaRole } from "@/app/lib/empresaRole";
 import ChecklistItem from "@/app/dashboard/ChecklistItem";
+import { ShieldCheckIcon } from "@/app/dashboard/Icons";
 import AddEstandarForm from "./AddEstandarForm";
 
 export const dynamic = "force-dynamic";
@@ -43,7 +44,7 @@ export default async function SgsstPage({ params }) {
 
   return (
     <div className="page-body">
-      <h1>🦺 Sistema de Gestión de Seguridad y Salud en el Trabajo (SG-SST)</h1>
+      <h1 className="icon-heading"><ShieldCheckIcon size={26} /> Sistema de Gestión de Seguridad y Salud en el Trabajo (SG-SST)</h1>
       <p className="page-intro">
         Estándares mínimos según la Resolución 0312 de 2019, organizados por
         el ciclo PHVA.

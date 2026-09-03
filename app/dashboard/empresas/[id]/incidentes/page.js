@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getEmpresaRole } from "@/app/lib/empresaRole";
+import { AlertTriangleIcon } from "@/app/dashboard/Icons";
 import IncidenteRow from "./IncidenteRow";
 import NewIncidenteForm from "./NewIncidenteForm";
 
@@ -24,7 +25,7 @@ export default async function IncidentesPage({ params }) {
 
   return (
     <div className="page-body">
-      <h1>⚠️ Incidentes y accidentes</h1>
+      <h1 className="icon-heading"><AlertTriangleIcon size={26} /> Incidentes y accidentes</h1>
       <p className="page-intro">
         Registro y seguimiento de accidentes de tránsito y accidentes o
         incidentes de trabajo. Cualquier persona de la empresa puede

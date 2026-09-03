@@ -350,6 +350,16 @@ button.danger:hover {
   margin: 0 0 4px;
 }
 
+.page-body h1.icon-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.icon-heading svg {
+  color: var(--primary);
+}
+
 .page-intro {
   color: var(--muted);
   margin: 0 0 24px;

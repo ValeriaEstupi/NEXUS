@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { withSignedUrls } from "@/app/lib/evidencias";
 import { getEmpresaRole } from "@/app/lib/empresaRole";
 import ChecklistItem from "@/app/dashboard/ChecklistItem";
+import { RouteIcon } from "@/app/dashboard/Icons";
 import AddRequisitoForm from "./AddRequisitoForm";
 import PilaresManager from "./PilaresManager";
 
@@ -56,7 +57,7 @@ export default async function PesvPage({ params }) {
 
   return (
     <div className="page-body">
-      <h1>🚦 Plan Estratégico de Seguridad Vial (PESV)</h1>
+      <h1 className="icon-heading"><RouteIcon size={26} /> Plan Estratégico de Seguridad Vial (PESV)</h1>
       <p className="page-intro">
         Seguimiento por pilar y por ciclo PHVA (Planear, Hacer, Verificar,
         Actuar), conforme a la Resolución 40595 de 2022.

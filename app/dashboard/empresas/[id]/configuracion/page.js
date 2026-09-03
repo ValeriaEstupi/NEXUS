@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getEmpresaRole } from "@/app/lib/empresaRole";
+import { SettingsIcon } from "@/app/dashboard/Icons";
 import EmpresaForm from "./EmpresaForm";
 import MembersManager from "./MembersManager";
 
@@ -26,7 +27,7 @@ export default async function ConfiguracionPage({ params }) {
 
   return (
     <div className="page-body">
-      <h1>⚙️ Configuración</h1>
+      <h1 className="icon-heading"><SettingsIcon size={26} /> Configuración</h1>
       <p className="page-intro">Datos de esta empresa y sus miembros.</p>
 
       {empresa && <EmpresaForm empresa={empresa} canEdit={canEdit} />}

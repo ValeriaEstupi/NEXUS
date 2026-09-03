@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getEmpresaRole } from "@/app/lib/empresaRole";
+import { IdCardIcon } from "@/app/dashboard/Icons";
 import ConductorRow from "./ConductorRow";
 import NewConductorForm from "./NewConductorForm";
 
@@ -22,7 +23,7 @@ export default async function ConductoresPage({ params }) {
 
   return (
     <div className="page-body">
-      <h1>🪪 Conductores</h1>
+      <h1 className="icon-heading"><IdCardIcon size={26} /> Conductores</h1>
       <p className="page-intro">
         Licencias, exámenes médicos y curso de conducción segura (Ley
         1503 de 2011) de cada conductor.

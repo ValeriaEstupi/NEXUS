@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import LogoutButton from "./LogoutButton";
+import { ShieldIcon } from "./Icons";
 
 // Todo lo que hay bajo /dashboard depende de quién mira (sus empresas,
 // sus datos) — nunca debe quedar guardado en caché para servirse igual
@@ -30,7 +31,7 @@ export default async function DashboardLayout({ children }) {
     <>
       <div className="top-bar">
         <div className="brand">
-          <span className="brand-mark">🛡️</span> NEXUS
+          <span className="brand-mark"><ShieldIcon size={20} /></span> NEXUS
         </div>
         <div className="user-chip">
           <div className="user-avatar">{initial}</div>

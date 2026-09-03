@@ -9,7 +9,7 @@ import AddRequisitoIsoForm from "./AddRequisitoIsoForm";
 // 45001) — cada una es un archivo de ruta aparte (iso-9001/page.js,
 // etc.) que solo le pasa el código de su norma. Vive en una carpeta
 // que empieza con "_" para que Next.js no la trate como una ruta.
-export default async function IsoNormaPage({ empresaId, normaCodigo, icono, disclaimer }) {
+export default async function IsoNormaPage({ empresaId, normaCodigo, Icon, disclaimer }) {
   const supabase = createClient();
   const {
     data: { user },
@@ -60,7 +60,7 @@ export default async function IsoNormaPage({ empresaId, normaCodigo, icono, disc
 
   return (
     <div className="page-body">
-      <h1>{icono} {norma.nombre}</h1>
+      <h1 className="icon-heading"><Icon size={26} /> {norma.nombre}</h1>
       <p className="page-intro">
         Checklist organizado por el ciclo PHVA (cláusulas 4-6 = Planear,
         7-8 = Hacer, 9 = Verificar, 10 = Actuar).
