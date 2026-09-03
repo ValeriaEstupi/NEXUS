@@ -38,11 +38,15 @@ export default function ChecklistItem({ item, meta, profiles, pilares, fases, no
 
   function handleEstadoChange(e) {
     const value = e.target.value;
+    const previous = estado;
     setEstado(value);
     setError(null);
     startTransition(async () => {
       const res = await updateCumplimientoItem(item.id, { estado: value }, empresaId);
-      if (res?.error) setError(res.error);
+      if (res?.error) {
+        setEstado(previous);
+        setError(res.error);
+      }
     });
   }
 

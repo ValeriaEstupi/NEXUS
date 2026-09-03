@@ -34,13 +34,24 @@ export async function updateCumplimientoItem(itemId, updates, empresaId) {
   if (updates.observaciones !== undefined)
     payload.observaciones = updates.observaciones || null;
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("cumplimiento_items")
     .update(payload)
-    .eq("id", itemId);
+    .eq("id", itemId)
+    .select("id");
 
   if (error) {
     return { error: error.message };
+  }
+  // Si la política de la base de datos bloquea la fila (por ejemplo, tu
+  // rol en esta empresa dejó de ser editor/admin), Supabase no lanza un
+  // error: simplemente no actualiza ninguna fila. Sin este chequeo, el
+  // cambio se ve guardado en pantalla pero desaparece al recargar.
+  if (!data || data.length === 0) {
+    return {
+      error:
+        "No se pudo guardar el cambio: no tienes permiso de edición sobre esta empresa (o el ítem ya no existe).",
+    };
   }
 
   if (empresaId) revalidateEmpresa(empresaId);
@@ -100,10 +111,17 @@ export async function updateRequisitoPesv(id, updates, empresaId) {
     payload.fuente_normativa = updates.fuenteNormativa || null;
   if (updates.activo !== undefined) payload.activo = updates.activo;
 
-  const { error } = await supabase.from("requisitos_pesv").update(payload).eq("id", id);
+  const { data, error } = await supabase
+    .from("requisitos_pesv")
+    .update(payload)
+    .eq("id", id)
+    .select("id");
 
   if (error) {
     return { error: error.message };
+  }
+  if (!data || data.length === 0) {
+    return { error: "No se pudo guardar: no tienes permiso de edición sobre esta empresa." };
   }
 
   if (empresaId) revalidatePath(`/dashboard/empresas/${empresaId}/pesv`);
@@ -179,10 +197,17 @@ export async function updateEstandarSgsst(id, updates, empresaId) {
   if (updates.puntaje !== undefined) payload.puntaje = Number(updates.puntaje) || 0;
   if (updates.activo !== undefined) payload.activo = updates.activo;
 
-  const { error } = await supabase.from("estandares_sgsst").update(payload).eq("id", id);
+  const { data, error } = await supabase
+    .from("estandares_sgsst")
+    .update(payload)
+    .eq("id", id)
+    .select("id");
 
   if (error) {
     return { error: error.message };
+  }
+  if (!data || data.length === 0) {
+    return { error: "No se pudo guardar: no tienes permiso de edición sobre esta empresa." };
   }
 
   if (empresaId) revalidatePath(`/dashboard/empresas/${empresaId}/sgsst`);
@@ -335,10 +360,17 @@ export async function updateRequisitoIso(id, updates, empresaId) {
   }
   if (updates.activo !== undefined) payload.activo = updates.activo;
 
-  const { error } = await supabase.from("requisitos_iso").update(payload).eq("id", id);
+  const { data, error } = await supabase
+    .from("requisitos_iso")
+    .update(payload)
+    .eq("id", id)
+    .select("id");
 
   if (error) {
     return { error: error.message };
+  }
+  if (!data || data.length === 0) {
+    return { error: "No se pudo guardar: no tienes permiso de edición sobre esta empresa." };
   }
 
   if (empresaId) revalidateIso(empresaId);
