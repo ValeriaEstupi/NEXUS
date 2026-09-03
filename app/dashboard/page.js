@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { BuildingIcon } from "./Icons";
 import NewEmpresaForm from "./NewEmpresaForm";
 
 // Depende de a qué empresas pertenece quien mira (o todas, si es app
@@ -93,19 +94,25 @@ export default async function DashboardHome() {
   );
 }
 
+// Fondos sólidos (sin rayas ni patrones repetidos) — cada empresa
+// rota entre estos 4 tonos de la paleta de NEXUS.
 const BANNER_STYLES = [
-  "repeating-linear-gradient(45deg, rgba(255,255,255,0.14) 0 2px, transparent 2px 16px), linear-gradient(135deg, #0f766e 0%, #14b8a6 55%, #22d3ee 100%)",
-  "repeating-linear-gradient(-45deg, rgba(255,255,255,0.14) 0 2px, transparent 2px 16px), linear-gradient(135deg, #0e7490 0%, #0891b2 55%, #22d3ee 100%)",
-  "radial-gradient(rgba(255,255,255,0.2) 1.5px, transparent 1.5px) 0 0/16px 16px, linear-gradient(135deg, #065f46 0%, #059669 60%, #6ee7b7 100%)",
-  "repeating-linear-gradient(90deg, rgba(255,255,255,0.12) 0 2px, transparent 2px 18px), linear-gradient(135deg, #164e63 0%, #0e7490 55%, #67e8f9 100%)",
+  "linear-gradient(135deg, #0f766e 0%, #134e4a 100%)",
+  "linear-gradient(135deg, #0e7490 0%, #164e63 100%)",
+  "linear-gradient(135deg, #059669 0%, #065f46 100%)",
+  "linear-gradient(135deg, #0891b2 0%, #155e75 100%)",
 ];
 
 function EmpresaCard({ empresa, role, colorIndex, notMember }) {
   const banner = BANNER_STYLES[colorIndex % BANNER_STYLES.length];
+  const initial = (empresa.razon_social || "?").trim().charAt(0).toUpperCase();
 
   return (
     <Link href={`/dashboard/empresas/${empresa.id}`} className="group-card">
-      <div className="group-card-banner" style={{ background: banner }} />
+      <div className="group-card-banner" style={{ background: banner }}>
+        <span className="group-card-initial">{initial}</span>
+        <BuildingIcon size={20} className="group-card-icon" />
+      </div>
       <div className="group-card-body">
         <strong>{empresa.razon_social}</strong>
         <span className="muted small">

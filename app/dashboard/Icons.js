@@ -3,7 +3,7 @@
 // pantalla — reemplazan a los emojis para un look más sobrio y
 // corporativo, acorde a una plataforma de cumplimiento normativo.
 
-function IconBase({ size = 18, children }) {
+function IconBase({ size = 18, children, className, style }) {
   return (
     <svg
       width={size}
@@ -14,7 +14,8 @@ function IconBase({ size = 18, children }) {
       strokeWidth="1.8"
       strokeLinecap="round"
       strokeLinejoin="round"
-      style={{ flexShrink: 0 }}
+      className={className}
+      style={{ flexShrink: 0, ...style }}
     >
       {children}
     </svg>

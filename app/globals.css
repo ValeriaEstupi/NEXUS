@@ -702,15 +702,35 @@ a.button-like {
 }
 
 .group-card-banner {
+  position: relative;
   height: 130px;
   border-radius: 12px;
   margin-bottom: 10px;
-  transition: opacity 0.12s ease, transform 0.12s ease;
+  overflow: hidden;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
 
 .group-card:hover .group-card-banner {
-  opacity: 0.92;
   transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.18);
+}
+
+.group-card-initial {
+  position: absolute;
+  left: 14px;
+  bottom: -18px;
+  font-size: 4.2rem;
+  font-weight: 800;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.22);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.group-card-icon {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  color: rgba(255, 255, 255, 0.55);
 }
 
 .group-card-body {
