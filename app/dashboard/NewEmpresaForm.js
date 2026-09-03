@@ -29,8 +29,8 @@ export default function NewEmpresaForm() {
     <div className="card inline-card">
       <h3>Crear una empresa nueva</h3>
       <p className="muted small">
-        Al crearla, arranca con su propia copia editable del catálogo del
-        PESV y del SG-SST, y quedas como admin de esa empresa.
+        Al crearla, arranca con su propia copia editable del catálogo
+        normativo, y quedas como admin de esa empresa.
       </p>
       {error && <div className="message error">{error}</div>}
       <form id="nueva-empresa-form" action={handleSubmit} className="form-grid">
