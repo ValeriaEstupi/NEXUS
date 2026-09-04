@@ -20,6 +20,9 @@ export async function getEmpresaRole(supabase, empresaId, userId) {
   return {
     role,
     isAppAdmin,
+    // Cualquier persona de la empresa (lector incluido) puede marcar el
+    // estado de avance de un proceso — eso es seguimiento, no catálogo.
+    canTrack: !!role,
     canEdit: isAppAdmin || role === "editor" || role === "admin",
     canDelete: isAppAdmin || role === "admin",
   };

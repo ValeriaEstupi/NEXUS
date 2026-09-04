@@ -16,7 +16,7 @@ export default async function IsoNormaPage({ empresaId, normaCodigo, Icon, discl
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [{ canEdit, canDelete }, { data: norma }, { data: fases }, { data: requisitos }, { data: profiles }] =
+  const [{ canTrack, canEdit, canDelete }, { data: norma }, { data: fases }, { data: requisitos }, { data: profiles }] =
     await Promise.all([
       getEmpresaRole(supabase, empresaId, user.id),
       supabase.from("normas_iso").select("id, codigo, nombre").eq("codigo", normaCodigo).single(),
@@ -110,6 +110,7 @@ export default async function IsoNormaPage({ empresaId, normaCodigo, Icon, discl
                     profiles={profiles || []}
                     normas={normas || []}
                     fases={fases || []}
+                    canTrack={canTrack}
                     canEdit={canEdit}
                     canDelete={canDelete}
                     empresaId={empresaId}

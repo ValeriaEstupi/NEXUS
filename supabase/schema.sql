@@ -517,10 +517,36 @@ create trigger cumplimiento_items_set_updated_at
   before update on public.cumplimiento_items
   for each row execute procedure public.set_updated_at();
 
+-- Cualquier persona de la empresa (lector incluido) puede marcar el
+-- estado de avance de un proceso, porque eso es trabajo operativo de
+-- todo el equipo. Reasignar responsable, mover la fecha límite o
+-- editar las observaciones sigue reservado a editor/admin.
+create or replace function public.check_cumplimiento_update()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_empresa_editor(new.empresa_id) then
+    if new.responsable_id is distinct from old.responsable_id
+       or new.fecha_limite is distinct from old.fecha_limite
+       or new.observaciones is distinct from old.observaciones then
+      raise exception 'Solo un editor o admin de la empresa puede cambiar el responsable, la fecha límite o las observaciones.';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger cumplimiento_items_check_update
+  before update on public.cumplimiento_items
+  for each row execute procedure public.check_cumplimiento_update();
+
 create policy "Ver cumplimiento de mis empresas"
   on public.cumplimiento_items for select using (public.is_empresa_member(empresa_id));
-create policy "Editar cumplimiento si soy editor de la empresa"
-  on public.cumplimiento_items for update using (public.is_empresa_editor(empresa_id));
+create policy "Marcar estado si soy miembro de la empresa"
+  on public.cumplimiento_items for update using (public.is_empresa_member(empresa_id));
 
 -- Crea automáticamente la fila de seguimiento cuando se agrega un
 -- requisito PESV o un estándar SG-SST nuevo al catálogo de una empresa.

@@ -28,7 +28,7 @@ const CATALOG_FNS = {
 // la fecha límite y las evidencias adjuntas. Se puede expandir para
 // editar todo eso, subir documentos de soporte, y (si tienes permiso)
 // editar el propio texto del requisito/estándar o borrarlo del catálogo.
-export default function ChecklistItem({ item, meta, profiles, pilares, fases, normas, canEdit, canDelete, empresaId }) {
+export default function ChecklistItem({ item, meta, profiles, pilares, fases, normas, canTrack, canEdit, canDelete, empresaId }) {
   const [open, setOpen] = useState(false);
   const [editingCatalog, setEditingCatalog] = useState(false);
   const [estado, setEstado] = useState(item.estado);
@@ -129,7 +129,7 @@ export default function ChecklistItem({ item, meta, profiles, pilares, fases, no
           {meta.activo === false && <span className="badge badge-inactivo">Inactivo</span>}
         </td>
         <td>
-          {canEdit ? (
+          {canTrack ? (
             <select
               value={estado}
               onChange={handleEstadoChange}

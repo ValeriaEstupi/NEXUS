@@ -17,7 +17,7 @@ export default async function PesvPage({ params }) {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [{ role, canEdit, canDelete }, { data: pilares }, { data: fases }, { data: requisitos }, { data: profiles }] =
+  const [{ role, canTrack, canEdit, canDelete }, { data: pilares }, { data: fases }, { data: requisitos }, { data: profiles }] =
     await Promise.all([
       getEmpresaRole(supabase, empresaId, user.id),
       supabase
@@ -117,6 +117,7 @@ export default async function PesvPage({ params }) {
                         profiles={profiles || []}
                         pilares={pilares || []}
                         fases={fases || []}
+                        canTrack={canTrack}
                         canEdit={canEdit}
                         canDelete={canDelete}
                         empresaId={empresaId}

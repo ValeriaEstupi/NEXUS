@@ -16,7 +16,7 @@ export default async function SgsstPage({ params }) {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [{ canEdit, canDelete }, { data: fases }, { data: estandares }, { data: profiles }] = await Promise.all([
+  const [{ canTrack, canEdit, canDelete }, { data: fases }, { data: estandares }, { data: profiles }] = await Promise.all([
     getEmpresaRole(supabase, empresaId, user.id),
     supabase.from("fases_phva").select("id, orden, nombre").order("orden"),
     supabase
@@ -106,6 +106,7 @@ export default async function SgsstPage({ params }) {
                       }}
                       profiles={profiles || []}
                       fases={fases || []}
+                      canTrack={canTrack}
                       canEdit={canEdit}
                       canDelete={canDelete}
                       empresaId={empresaId}
