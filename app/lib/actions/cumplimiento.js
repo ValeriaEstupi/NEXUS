@@ -23,7 +23,11 @@ function revalidateEmpresa(empresaId) {
 // estándar SG-SST: estado, responsable, fecha límite u observaciones.
 export async function updateCumplimientoItem(itemId, updates, empresaId) {
   const supabase = createClient();
-  await requireUser(supabase);
+  const user = await requireUser(supabase);
+
+  if (!itemId) {
+    return { error: "DIAGNÓSTICO: el ítem que intentas guardar no tiene un id válido (itemId vacío)." };
+  }
 
   const payload = {};
   if (updates.estado !== undefined) payload.estado = updates.estado;
@@ -41,16 +45,26 @@ export async function updateCumplimientoItem(itemId, updates, empresaId) {
     .select("id");
 
   if (error) {
-    return { error: error.message };
+    return { error: `DIAGNÓSTICO (error de Postgres): ${error.message} [código ${error.code || "?"}]` };
   }
   // Si la política de la base de datos bloquea la fila (por ejemplo, tu
   // rol en esta empresa dejó de ser editor/admin), Supabase no lanza un
   // error: simplemente no actualiza ninguna fila. Sin este chequeo, el
-  // cambio se ve guardado en pantalla pero desaparece al recargar.
+  // cambio se ve guardado en pantalla pero desaparece al recargar. Si
+  // pasa, reunimos un par de datos más para saber por qué.
   if (!data || data.length === 0) {
+    const [{ data: fila }, { data: membresia }] = await Promise.all([
+      supabase.from("cumplimiento_items").select("id, empresa_id, estado, tipo").eq("id", itemId).maybeSingle(),
+      empresaId
+        ? supabase.from("empresa_members").select("role").eq("empresa_id", empresaId).eq("user_id", user.id).maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
     return {
       error:
-        "No se pudo guardar el cambio: no tienes permiso de edición sobre esta empresa (o el ítem ya no existe).",
+        `DIAGNÓSTICO: no se guardó ningún cambio. ` +
+        `fila_visible=${fila ? "sí" : "NO"} ` +
+        (fila ? `(empresa_id_de_la_fila=${fila.empresa_id}, empresa_id_recibido=${empresaId || "—"}) ` : "") +
+        `tu_rol_en_esa_empresa=${membresia?.role || "NINGUNO"} usuario=${user.email}`,
     };
   }
 
