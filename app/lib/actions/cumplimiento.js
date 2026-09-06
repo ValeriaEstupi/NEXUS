@@ -26,7 +26,11 @@ export async function updateCumplimientoItem(itemId, updates, empresaId) {
   const user = await requireUser(supabase);
 
   if (!itemId) {
-    return { error: "DIAGNÓSTICO: el ítem que intentas guardar no tiene un id válido (itemId vacío)." };
+    return {
+      error:
+        `DIAGNÓSTICO: el ítem que intentas guardar no tiene un id válido (itemId vacío). ` +
+        `Proyecto de Supabase en uso: ${process.env.NEXT_PUBLIC_SUPABASE_URL}`,
+    };
   }
 
   const payload = {};
