@@ -78,6 +78,7 @@ export default async function CarpetaFormatosPage({ params }) {
 
       <CarpetaClient
         carpetaId={carpetaId}
+        nombreActual={carpeta?.nombre}
         rutaSegmentos={ruta}
         subcarpetas={subcarpetas || []}
         archivos={archivosConUrl}

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import {
   crearCarpeta,
+  renombrarCarpeta,
   deleteCarpeta,
   subirArchivoBiblioteca,
   deleteArchivoBiblioteca,
@@ -18,7 +19,7 @@ const BANNERS = [
   "linear-gradient(135deg, #2563eb 0%, #1e3a8a 100%)",
 ];
 
-export default function CarpetaClient({ carpetaId, rutaSegmentos, subcarpetas, archivos, esFormato, isAppAdmin }) {
+export default function CarpetaClient({ carpetaId, nombreActual, rutaSegmentos, subcarpetas, archivos, esFormato, isAppAdmin }) {
   const [error, setError] = useState(null);
   const [pending, startTransition] = useTransition();
 
@@ -30,12 +31,6 @@ export default function CarpetaClient({ carpetaId, rutaSegmentos, subcarpetas, a
       if (res?.error) setError(res.error);
       else document.getElementById("crear-carpeta-form")?.reset();
     });
-  }
-
-  async function handleBorrarCarpeta(id) {
-    if (!confirm("¿Borrar esta subcarpeta? Se borra también todo lo que tenga dentro.")) return;
-    const res = await deleteCarpeta(id, carpetaId);
-    if (res?.error) setError(res.error);
   }
 
   function handleSubirArchivo(formData) {
@@ -58,79 +53,68 @@ export default function CarpetaClient({ carpetaId, rutaSegmentos, subcarpetas, a
     <>
       {error && <div className="message error">{error}</div>}
 
+      {isAppAdmin && carpetaId && (
+        <RenombrarControl id={carpetaId} nombreActual={nombreActual} parentId={rutaSegmentos[rutaSegmentos.length - 2] || null} label="Renombrar esta carpeta" setError={setError} />
+      )}
+
       {subcarpetas.length > 0 && (
         <div className="group-card-grid">
           {subcarpetas.map((sc, i) => (
-            <div key={sc.id}>
-              <Link
-                href={`/dashboard/formatos/${[...rutaSegmentos, sc.id].join("/")}`}
-                className="group-card"
-              >
-                <div className="group-card-banner" style={{ background: BANNERS[i % BANNERS.length] }}>
-                  <LayersIcon size={20} className="group-card-icon" />
-                </div>
-                <div className="group-card-body">
-                  <strong>{sc.nombre}</strong>
-                  {sc.es_formato && <span className="muted small">Word/Excel con marcadores</span>}
-                </div>
-              </Link>
-              {isAppAdmin && (
-                <button
-                  type="button"
-                  className="secondary"
-                  style={{ padding: "2px 8px", fontSize: "0.7rem", marginTop: 4 }}
-                  onClick={() => handleBorrarCarpeta(sc.id)}
-                >
-                  Borrar subcarpeta
-                </button>
-              )}
-            </div>
+            <SubcarpetaCard
+              key={sc.id}
+              carpeta={sc}
+              href={`/dashboard/formatos/${[...rutaSegmentos, sc.id].join("/")}`}
+              banner={BANNERS[i % BANNERS.length]}
+              isAppAdmin={isAppAdmin}
+              parentId={carpetaId}
+              setError={setError}
+            />
           ))}
         </div>
       )}
 
       {carpetaId && subcarpetas.length === 0 && (
-      <section className="section-card">
-        <h2>Archivos aquí</h2>
-        {archivos.length > 0 ? (
-          <ul className="file-list">
-            {archivos.map((a) => (
-              <li key={a.id}>
-                📄{" "}
-                {a.url ? (
-                  <a href={a.url} target="_blank" rel="noreferrer">
-                    {a.nombre_archivo}
-                  </a>
-                ) : (
-                  a.nombre_archivo
-                )}{" "}
-                <span className="muted small">— {formatFechaHora(a.created_at)}</span>
-                {isAppAdmin && (
-                  <button
-                    type="button"
-                    className="secondary"
-                    style={{ padding: "2px 8px", fontSize: "0.7rem", marginLeft: 8 }}
-                    onClick={() => handleBorrarArchivo(a.id, a.ruta_storage)}
-                  >
-                    Borrar
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="empty-state">Todavía no hay archivos aquí.</p>
-        )}
+        <section className="section-card">
+          <h2>Archivos aquí</h2>
+          {archivos.length > 0 ? (
+            <ul className="file-list">
+              {archivos.map((a) => (
+                <li key={a.id}>
+                  📄{" "}
+                  {a.url ? (
+                    <a href={a.url} target="_blank" rel="noreferrer">
+                      {a.nombre_archivo}
+                    </a>
+                  ) : (
+                    a.nombre_archivo
+                  )}{" "}
+                  <span className="muted small">— {formatFechaHora(a.created_at)}</span>
+                  {isAppAdmin && (
+                    <button
+                      type="button"
+                      className="secondary"
+                      style={{ padding: "2px 8px", fontSize: "0.7rem", marginLeft: 8 }}
+                      onClick={() => handleBorrarArchivo(a.id, a.ruta_storage)}
+                    >
+                      Borrar
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="empty-state">Todavía no hay archivos aquí.</p>
+          )}
 
-        {isAppAdmin && (
-          <form id="subir-archivo-form" action={handleSubirArchivo} className="inline-form-row">
-            <input type="file" name="archivo" accept={esFormato ? ".docx,.xlsx" : undefined} required />
-            <button type="submit" disabled={pending}>
-              {pending ? "Subiendo..." : "Agregar archivo"}
-            </button>
-          </form>
-        )}
-      </section>
+          {isAppAdmin && (
+            <form id="subir-archivo-form" action={handleSubirArchivo} className="inline-form-row">
+              <input type="file" name="archivo" accept={esFormato ? ".docx,.xlsx" : undefined} required />
+              <button type="submit" disabled={pending}>
+                {pending ? "Subiendo..." : "Agregar archivo"}
+              </button>
+            </form>
+          )}
+        </section>
       )}
 
       {isAppAdmin && (
@@ -154,5 +138,105 @@ export default function CarpetaClient({ carpetaId, rutaSegmentos, subcarpetas, a
         </section>
       )}
     </>
+  );
+}
+
+function SubcarpetaCard({ carpeta, href, banner, isAppAdmin, parentId, setError }) {
+  const [renombrando, setRenombrando] = useState(false);
+
+  async function handleBorrar() {
+    if (!confirm("¿Borrar esta subcarpeta? Se borra también todo lo que tenga dentro.")) return;
+    const res = await deleteCarpeta(carpeta.id, parentId);
+    if (res?.error) setError(res.error);
+  }
+
+  return (
+    <div>
+      {renombrando ? (
+        <div className="card inline-card" style={{ padding: 12 }}>
+          <RenombrarInlineForm
+            id={carpeta.id}
+            nombreActual={carpeta.nombre}
+            parentId={parentId}
+            setError={setError}
+            onDone={() => setRenombrando(false)}
+          />
+        </div>
+      ) : (
+        <Link href={href} className="group-card">
+          <div className="group-card-banner" style={{ background: banner }}>
+            <LayersIcon size={20} className="group-card-icon" />
+          </div>
+          <div className="group-card-body">
+            <strong>{carpeta.nombre}</strong>
+            {carpeta.es_formato && <span className="muted small">Word/Excel con marcadores</span>}
+          </div>
+        </Link>
+      )}
+      {isAppAdmin && !renombrando && (
+        <div className="actions-row" style={{ marginTop: 4 }}>
+          <button
+            type="button"
+            className="secondary"
+            style={{ padding: "2px 8px", fontSize: "0.7rem" }}
+            onClick={() => setRenombrando(true)}
+          >
+            Renombrar
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            style={{ padding: "2px 8px", fontSize: "0.7rem" }}
+            onClick={handleBorrar}
+          >
+            Borrar subcarpeta
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RenombrarControl({ id, nombreActual, parentId, label, setError }) {
+  const [renombrando, setRenombrando] = useState(false);
+
+  if (renombrando) {
+    return (
+      <div className="card inline-card" style={{ padding: 12, marginBottom: 16 }}>
+        <RenombrarInlineForm id={id} nombreActual={nombreActual} parentId={parentId} setError={setError} onDone={() => setRenombrando(false)} />
+      </div>
+    );
+  }
+
+  return (
+    <button type="button" className="secondary" style={{ marginBottom: 16 }} onClick={() => setRenombrando(true)}>
+      {label}
+    </button>
+  );
+}
+
+function RenombrarInlineForm({ id, nombreActual, parentId, setError, onDone }) {
+  const [pending, startTransition] = useTransition();
+
+  function handleSubmit(formData) {
+    setError(null);
+    const nombre = formData.get("nombre");
+    startTransition(async () => {
+      const res = await renombrarCarpeta(id, nombre, parentId);
+      if (res?.error) setError(res.error);
+      else onDone();
+    });
+  }
+
+  return (
+    <form action={handleSubmit} className="inline-form-row">
+      <input type="text" name="nombre" defaultValue={nombreActual} required autoFocus />
+      <button type="submit" disabled={pending}>
+        {pending ? "Guardando..." : "Guardar"}
+      </button>
+      <button type="button" className="secondary" onClick={onDone}>
+        Cancelar
+      </button>
+    </form>
   );
 }

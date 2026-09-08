@@ -52,6 +52,28 @@ export async function crearCarpeta(formData) {
   return { success: true };
 }
 
+export async function renombrarCarpeta(id, nuevoNombre, parentId) {
+  const supabase = createClient();
+  const user = await requireUser(supabase);
+
+  if (!(await requireAppAdmin(supabase, user))) {
+    return { error: "Solo el app admin puede cambiar nombres en la biblioteca." };
+  }
+
+  const nombre = (nuevoNombre || "").toString().trim();
+  if (!nombre) return { error: "El nombre no puede quedar vacío." };
+
+  const { error } = await supabase.from("formatos_carpeta").update({ nombre }).eq("id", id);
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  revalidatePath(rutaCarpeta(parentId));
+  revalidatePath(rutaCarpeta(id));
+  return { success: true };
+}
+
 export async function deleteCarpeta(id, parentId) {
   const supabase = createClient();
   const user = await requireUser(supabase);
