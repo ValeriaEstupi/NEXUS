@@ -89,7 +89,7 @@ export default function CarpetaClient({ carpetaId, rutaSegmentos, subcarpetas, a
         </div>
       )}
 
-      {carpetaId && (
+      {carpetaId && subcarpetas.length === 0 && (
       <section className="section-card">
         <h2>Archivos aquí</h2>
         {archivos.length > 0 ? (
