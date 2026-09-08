@@ -15,22 +15,36 @@ export default async function DocumentosPage({ params }) {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [{ canEdit }, { data: documentos }, { data: categorias }, { data: plantillasBiblioteca }] = await Promise.all([
+  const [{ canEdit }, { data: documentos }, { data: carpetasFormato }] = await Promise.all([
     getEmpresaRole(supabase, empresaId, user.id),
     supabase
       .from("documentos_generados")
       .select("id, nombre_archivo, ruta_storage, created_at")
       .eq("empresa_id", empresaId)
       .order("created_at", { ascending: false }),
-    supabase.from("formatos_categoria").select("id, orden, nombre").order("orden"),
-    // Solo la subcarpeta "formatos" (Word/Excel con marcadores) — la
-    // subcarpeta "documentos" es de referencia, no se rellena.
-    supabase
-      .from("formatos_plantilla")
-      .select("id, categoria_id, nombre_archivo")
-      .eq("subcarpeta", "formatos")
-      .order("nombre_archivo"),
+    // Solo las carpetas marcadas "es_formato" (Word/Excel con
+    // marcadores) — las demás son de referencia, no se rellenan.
+    supabase.from("formatos_carpeta").select("id, nombre").eq("es_formato", true).order("nombre"),
   ]);
+
+  // Consulta plana aparte (no anidada) — evita depender de que
+  // Supabase resuelva bien una relación anidada.
+  const idsCarpetasFormato = (carpetasFormato || []).map((c) => c.id);
+  let archivosPorCarpeta = {};
+  if (idsCarpetasFormato.length > 0) {
+    const { data: archivosFormato } = await supabase
+      .from("formatos_archivo")
+      .select("id, carpeta_id, nombre_archivo")
+      .in("carpeta_id", idsCarpetasFormato)
+      .order("nombre_archivo");
+    (archivosFormato || []).forEach((a) => {
+      if (!archivosPorCarpeta[a.carpeta_id]) archivosPorCarpeta[a.carpeta_id] = [];
+      archivosPorCarpeta[a.carpeta_id].push(a);
+    });
+  }
+  const carpetasConArchivos = (carpetasFormato || [])
+    .map((c) => ({ ...c, archivos: archivosPorCarpeta[c.id] || [] }))
+    .filter((c) => c.archivos.length > 0);
 
   const rutas = (documentos || []).map((d) => d.ruta_storage);
   let urlPorRuta = {};
@@ -64,8 +78,7 @@ export default async function DocumentosPage({ params }) {
         empresaId={empresaId}
         documentos={documentosConUrl}
         canEdit={canEdit}
-        categorias={categorias || []}
-        plantillasBiblioteca={plantillasBiblioteca || []}
+        carpetasFormato={carpetasConArchivos}
       />
     </div>
   );

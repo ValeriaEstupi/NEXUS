@@ -8,7 +8,7 @@ import {
 } from "@/app/lib/actions/plantillas";
 import { formatFechaHora } from "@/app/lib/helpers";
 
-export default function DocumentosClient({ empresaId, documentos, canEdit, categorias, plantillasBiblioteca }) {
+export default function DocumentosClient({ empresaId, documentos, canEdit, carpetasFormato }) {
   const [error, setError] = useState(null);
   const [pending, startTransition] = useTransition();
   const [generandoId, setGenerandoId] = useState(null);
@@ -48,35 +48,32 @@ export default function DocumentosClient({ empresaId, documentos, canEdit, categ
     <>
       {error && <div className="message error">{error}</div>}
 
-      {canEdit && categorias && categorias.length > 0 && (
+      {canEdit && (
         <section className="section-card">
           <h2>Generar desde la biblioteca</h2>
-          {categorias.map((cat) => {
-            const items = (plantillasBiblioteca || []).filter((p) => p.categoria_id === cat.id);
-            if (items.length === 0) return null;
-            return (
-              <div key={cat.id} style={{ marginBottom: 14 }}>
-                <strong style={{ fontSize: "0.85rem" }}>{cat.orden}. {cat.nombre}</strong>
+          {carpetasFormato && carpetasFormato.length > 0 ? (
+            carpetasFormato.map((carpeta) => (
+              <div key={carpeta.id} style={{ marginBottom: 14 }}>
+                <strong style={{ fontSize: "0.85rem" }}>{carpeta.nombre}</strong>
                 <ul className="file-list">
-                  {items.map((p) => (
-                    <li key={p.id}>
-                      📄 {p.nombre_archivo}
+                  {carpeta.archivos.map((a) => (
+                    <li key={a.id}>
+                      📄 {a.nombre_archivo}
                       <button
                         type="button"
                         className="secondary"
                         style={{ padding: "2px 8px", fontSize: "0.7rem", marginLeft: 8 }}
-                        disabled={pending && generandoId === p.id}
-                        onClick={() => handleGenerarBiblioteca(p.id)}
+                        disabled={pending && generandoId === a.id}
+                        onClick={() => handleGenerarBiblioteca(a.id)}
                       >
-                        {pending && generandoId === p.id ? "Generando..." : "Generar para esta empresa"}
+                        {pending && generandoId === a.id ? "Generando..." : "Generar para esta empresa"}
                       </button>
                     </li>
                   ))}
                 </ul>
               </div>
-            );
-          })}
-          {(plantillasBiblioteca || []).length === 0 && (
+            ))
+          ) : (
             <p className="empty-state">
               Todavía no hay formatos en la biblioteca compartida.
             </p>

@@ -107,18 +107,18 @@ export async function generarDocumento(formData) {
   return guardarDocumentoGenerado(supabase, { empresaId, userId: user.id, nombreOriginal, ext, buffer });
 }
 
-// Genera, para una empresa puntual, la versión rellena de una
-// plantilla de la biblioteca compartida (ver formatosBiblioteca.js).
-export async function generarDesdeBiblioteca(plantillaId, empresaId) {
+// Genera, para una empresa puntual, la versión rellena de un archivo
+// de la biblioteca compartida (ver formatosBiblioteca.js).
+export async function generarDesdeBiblioteca(archivoId, empresaId) {
   const supabase = createClient();
   const user = await requireUser(supabase);
 
-  if (!plantillaId || !empresaId) {
-    return { error: "Falta la plantilla o la empresa." };
+  if (!archivoId || !empresaId) {
+    return { error: "Falta el archivo o la empresa." };
   }
 
   const [{ data: plantilla, error: plantillaError }, { data: empresa, error: empresaError }] = await Promise.all([
-    supabase.from("formatos_plantilla").select("nombre_archivo, ruta_storage").eq("id", plantillaId).single(),
+    supabase.from("formatos_archivo").select("nombre_archivo, ruta_storage").eq("id", archivoId).single(),
     supabase
       .from("empresas")
       .select("razon_social, nit, numero_vehiculos, numero_trabajadores, nivel_riesgo_arl")
@@ -127,7 +127,7 @@ export async function generarDesdeBiblioteca(plantillaId, empresaId) {
   ]);
 
   if (plantillaError || !plantilla) {
-    return { error: "No se encontró esa plantilla en la biblioteca." };
+    return { error: "No se encontró ese archivo en la biblioteca." };
   }
   if (empresaError || !empresa) {
     return { error: "No se pudo leer la información de la empresa." };

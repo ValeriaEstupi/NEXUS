@@ -720,81 +720,84 @@ create policy "Subir documentos generados si soy editor de la empresa"
 create policy "Borrar documentos generados si soy editor de la empresa"
   on public.documentos_generados for delete using (public.is_empresa_editor(empresa_id));
 
--- Biblioteca de formatos MAESTROS: una sola carpeta, igual para TODAS
--- las empresas de la plataforma (no se duplica por empresa, a
--- diferencia de "documentos_generados" arriba). Organizada en 6
--- categorías fijas. Solo el app admin la administra (subir/borrar),
--- porque afecta a todas las empresas a la vez; cualquier persona
--- logueada puede verla y usarla para generar SU propia versión
--- rellenada dentro de una empresa puntual.
-create table public.formatos_categoria (
-  id serial primary key,
-  orden integer not null,
-  nombre text not null unique
-);
-
-alter table public.formatos_categoria enable row level security;
-
-create policy "Ver categorías de formatos si estoy logueado"
-  on public.formatos_categoria for select using (auth.uid() is not null);
-
-insert into public.formatos_categoria (orden, nombre) values
-  (1, 'G. Estratégica'),
-  (2, 'G. Operativa'),
-  (3, 'G. Integral'),
-  (4, 'G. Talento Humano'),
-  (5, 'G. Compras'),
-  (6, 'G. Mejora');
-
-insert into public.formatos_subcategoria (categoria_id, orden, nombre)
-select c.id, v.orden, v.nombre
-from (values (1, 'Planeación'), (2, 'Comercial')) as v(orden, nombre)
-cross join (select id from public.formatos_categoria where nombre = 'G. Estratégica') c;
-
--- Dentro de una categoría se puede navegar directo a las subcarpetas
--- "documentos"/"formatos", o (si el app admin las creó) primero pasar
--- por una subcategoría propia de esa categoría (ej. "Planeación",
--- "Comercial" dentro de "G. Estratégica") — cada subcategoría tiene
--- también sus propias subcarpetas "documentos"/"formatos".
-create table public.formatos_subcategoria (
+-- Biblioteca de formatos MAESTROS: un árbol de carpetas genérico y
+-- compartido por TODA la plataforma (no se duplica por empresa, a
+-- diferencia de "documentos_generados" arriba). Cualquier carpeta
+-- puede tener subcarpetas Y archivos propios, a la profundidad que
+-- haga falta. Una carpeta marcada "es_formato" solo acepta Word/Excel
+-- con marcadores entre paréntesis, y desde una empresa se puede
+-- generar la versión rellena con sus datos; las demás carpetas
+-- aceptan cualquier archivo, que se descarga tal cual. Solo el app
+-- admin administra la biblioteca (crear carpetas, subir/borrar
+-- archivos) — cualquier persona logueada puede verla y usarla.
+create table public.formatos_carpeta (
   id uuid primary key default gen_random_uuid(),
-  categoria_id integer not null references public.formatos_categoria(id) on delete cascade,
+  parent_id uuid references public.formatos_carpeta(id) on delete cascade,
   orden integer not null default 0,
-  nombre text not null
+  nombre text not null,
+  es_formato boolean not null default false
 );
 
-alter table public.formatos_subcategoria enable row level security;
+alter table public.formatos_carpeta enable row level security;
 
-create policy "Ver subcategorías de formatos si estoy logueado"
-  on public.formatos_subcategoria for select using (auth.uid() is not null);
-create policy "Crear subcategorías de formatos si soy app admin"
-  on public.formatos_subcategoria for insert with check (public.is_app_admin());
-create policy "Borrar subcategorías de formatos si soy app admin"
-  on public.formatos_subcategoria for delete using (public.is_app_admin());
+create policy "Ver carpetas de formatos si estoy logueado"
+  on public.formatos_carpeta for select using (auth.uid() is not null);
+create policy "Crear carpetas de formatos si soy app admin"
+  on public.formatos_carpeta for insert with check (public.is_app_admin());
+create policy "Borrar carpetas de formatos si soy app admin"
+  on public.formatos_carpeta for delete using (public.is_app_admin());
 
--- Dentro de cada categoría (o subcategoría) hay dos subcarpetas:
--- "documentos" (archivo de referencia, cualquier tipo, se descarga
--- tal cual) y "formatos" (Word/Excel con marcadores entre paréntesis,
--- se puede generar la versión rellena para una empresa puntual).
-create table public.formatos_plantilla (
+create table public.formatos_archivo (
   id uuid primary key default gen_random_uuid(),
-  categoria_id integer not null references public.formatos_categoria(id),
-  subcategoria_id uuid references public.formatos_subcategoria(id) on delete cascade,
-  subcarpeta text not null default 'formatos' check (subcarpeta in ('documentos', 'formatos')),
+  carpeta_id uuid not null references public.formatos_carpeta(id) on delete cascade,
   nombre_archivo text not null,
   ruta_storage text not null,
   subido_por uuid references public.profiles(id),
   created_at timestamptz not null default now()
 );
 
-alter table public.formatos_plantilla enable row level security;
+alter table public.formatos_archivo enable row level security;
 
-create policy "Ver plantillas de la biblioteca si estoy logueado"
-  on public.formatos_plantilla for select using (auth.uid() is not null);
-create policy "Subir plantillas a la biblioteca si soy app admin"
-  on public.formatos_plantilla for insert with check (public.is_app_admin());
-create policy "Borrar plantillas de la biblioteca si soy app admin"
-  on public.formatos_plantilla for delete using (public.is_app_admin());
+create policy "Ver archivos de formatos si estoy logueado"
+  on public.formatos_archivo for select using (auth.uid() is not null);
+create policy "Subir archivos de formatos si soy app admin"
+  on public.formatos_archivo for insert with check (public.is_app_admin());
+create policy "Borrar archivos de formatos si soy app admin"
+  on public.formatos_archivo for delete using (public.is_app_admin());
+
+-- Semillas: las 6 categorías raíz, y la estructura ya armada dentro
+-- de "G. Estratégica" (Planeación/Comercial, cada una con sus
+-- subcarpetas Documentos/Formatos, y dentro de Planeación > Documentos
+-- las 8 subcarpetas pedidas).
+do $$
+declare
+  v_ge uuid; v_plan uuid; v_com uuid; v_plan_doc uuid;
+begin
+  insert into public.formatos_carpeta (orden, nombre) values (1, 'G. Estratégica') returning id into v_ge;
+  insert into public.formatos_carpeta (orden, nombre) values (2, 'G. Operativa');
+  insert into public.formatos_carpeta (orden, nombre) values (3, 'G. Integral');
+  insert into public.formatos_carpeta (orden, nombre) values (4, 'G. Talento Humano');
+  insert into public.formatos_carpeta (orden, nombre) values (5, 'G. Compras');
+  insert into public.formatos_carpeta (orden, nombre) values (6, 'G. Mejora');
+
+  insert into public.formatos_carpeta (parent_id, orden, nombre) values (v_ge, 1, 'Planeación') returning id into v_plan;
+  insert into public.formatos_carpeta (parent_id, orden, nombre) values (v_ge, 2, 'Comercial') returning id into v_com;
+
+  insert into public.formatos_carpeta (parent_id, orden, nombre, es_formato) values (v_plan, 1, 'Documentos', false) returning id into v_plan_doc;
+  insert into public.formatos_carpeta (parent_id, orden, nombre, es_formato) values (v_plan, 2, 'Formatos', true);
+  insert into public.formatos_carpeta (parent_id, orden, nombre, es_formato) values (v_com, 1, 'Documentos', false);
+  insert into public.formatos_carpeta (parent_id, orden, nombre, es_formato) values (v_com, 2, 'Formatos', true);
+
+  insert into public.formatos_carpeta (parent_id, orden, nombre) values
+    (v_plan_doc, 1, 'Marco Estratégico'),
+    (v_plan_doc, 2, 'Políticas'),
+    (v_plan_doc, 3, 'Caracterizaciones'),
+    (v_plan_doc, 4, 'Programas'),
+    (v_plan_doc, 5, 'Procedimientos'),
+    (v_plan_doc, 6, 'Manuales'),
+    (v_plan_doc, 7, 'Reglamentos'),
+    (v_plan_doc, 8, 'Códigos');
+end $$;
 
 
 -- ---------------------------------------------------------------------
