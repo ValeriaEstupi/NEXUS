@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "./_shared";
 import { generarFormatoParaTodasLasEmpresas } from "@/app/lib/documentoFill";
+import { sanitizarNombreArchivo } from "@/app/lib/sanitizarNombreArchivo";
 
 const TIPOS_FORMATO = ["docx", "xlsx"];
 
@@ -177,7 +178,7 @@ export async function subirArchivoBiblioteca(formData) {
     return { error: "Esta carpeta es de Formatos: solo se aceptan Word (.docx) o Excel (.xlsx)." };
   }
 
-  const rutaStorage = `${carpetaId}/${Date.now()}-${nombreOriginal}`;
+  const rutaStorage = `${carpetaId}/${Date.now()}-${sanitizarNombreArchivo(nombreOriginal)}`;
   const { error: uploadError } = await supabase.storage
     .from("formatos")
     .upload(rutaStorage, file);

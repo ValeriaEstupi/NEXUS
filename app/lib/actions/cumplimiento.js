@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "./_shared";
+import { sanitizarNombreArchivo } from "@/app/lib/sanitizarNombreArchivo";
 
 function revalidateIso(empresaId) {
   revalidatePath(`/dashboard/empresas/${empresaId}/iso-9001`);
@@ -268,7 +269,7 @@ export async function uploadEvidencia(formData) {
     return { error: "Selecciona un archivo." };
   }
 
-  const rutaStorage = `${empresaId}/${itemId}/${Date.now()}-${file.name}`;
+  const rutaStorage = `${empresaId}/${itemId}/${Date.now()}-${sanitizarNombreArchivo(file.name)}`;
 
   const { error: uploadError } = await supabase.storage
     .from("evidencias")

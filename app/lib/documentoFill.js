@@ -7,6 +7,7 @@
 // acciones en sí — solo funciones de apoyo para las que sí lo son.
 import JSZip from "jszip";
 import { rellenarPlaceholders } from "@/app/lib/plantillasFill";
+import { sanitizarNombreArchivo } from "@/app/lib/sanitizarNombreArchivo";
 
 export const TIPOS_SOPORTADOS = {
   docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -42,7 +43,7 @@ export async function rellenarArchivo(bytes, empresa) {
 // porque a veces se generan varios documentos seguidos (una empresa
 // nueva, o subir un formato a la biblioteca) y no hace falta repetirlo.
 export async function guardarDocumentoGenerado(supabase, { empresaId, userId, nombreOriginal, ext, buffer }) {
-  const rutaStorage = `${empresaId}/documentos/${Date.now()}-${nombreOriginal}`;
+  const rutaStorage = `${empresaId}/documentos/${Date.now()}-${sanitizarNombreArchivo(nombreOriginal)}`;
   const { error: uploadError } = await supabase.storage
     .from("evidencias")
     .upload(rutaStorage, buffer, { contentType: TIPOS_SOPORTADOS[ext] });
