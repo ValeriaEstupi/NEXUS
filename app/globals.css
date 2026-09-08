@@ -313,6 +313,8 @@ button.danger:hover {
   gap: 8px;
   font-weight: 800;
   letter-spacing: -0.02em;
+  text-decoration: none;
+  color: inherit;
 }
 
 .brand-mark {

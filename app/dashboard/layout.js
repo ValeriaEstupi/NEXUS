@@ -32,9 +32,9 @@ export default async function DashboardLayout({ children }) {
     <>
       <div className="top-bar">
         <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
-          <div className="brand">
+          <Link href="/dashboard" className="brand">
             <span className="brand-mark"><ShieldIcon size={20} /></span> NEXUS
-          </div>
+          </Link>
           <Link href="/dashboard/formatos" className="top-bar-link">
             <LayersIcon size={16} /> Biblioteca de formatos
           </Link>

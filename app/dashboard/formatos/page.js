@@ -1,6 +1,7 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { LayersIcon } from "@/app/dashboard/Icons";
+import { LayersIcon, ArrowLeftIcon } from "@/app/dashboard/Icons";
 import BibliotecaClient from "./BibliotecaClient";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +34,9 @@ export default async function BibliotecaFormatosPage() {
 
   return (
     <div className="page-body">
+      <Link href="/dashboard" className="top-bar-link" style={{ padding: "6px 0", marginBottom: 8 }}>
+        <ArrowLeftIcon size={14} /> Mis empresas
+      </Link>
       <h1 className="icon-heading"><LayersIcon size={26} /> Biblioteca de formatos</h1>
       <p className="page-intro">
         Una sola carpeta de formatos maestros, igual para todas las
