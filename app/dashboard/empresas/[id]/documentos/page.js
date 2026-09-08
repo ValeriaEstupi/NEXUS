@@ -15,36 +15,38 @@ export default async function DocumentosPage({ params }) {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [{ canEdit }, { data: documentos }, { data: carpetasFormato }] = await Promise.all([
+  const [{ canEdit }, { data: documentos }, { data: carpetas }, { data: archivos }] = await Promise.all([
     getEmpresaRole(supabase, empresaId, user.id),
     supabase
       .from("documentos_generados")
       .select("id, nombre_archivo, ruta_storage, created_at")
       .eq("empresa_id", empresaId)
       .order("created_at", { ascending: false }),
-    // Solo las carpetas marcadas "es_formato" (Word/Excel con
-    // marcadores) — las demás son de referencia, no se rellenan.
-    supabase.from("formatos_carpeta").select("id, nombre").eq("es_formato", true).order("nombre"),
+    // Consultas planas aparte (no anidadas) — evita depender de que
+    // Supabase resuelva bien una relación anidada.
+    supabase.from("formatos_carpeta").select("id, nombre"),
+    supabase.from("formatos_archivo").select("id, carpeta_id, nombre_archivo").order("nombre_archivo"),
   ]);
 
-  // Consulta plana aparte (no anidada) — evita depender de que
-  // Supabase resuelva bien una relación anidada.
-  const idsCarpetasFormato = (carpetasFormato || []).map((c) => c.id);
-  let archivosPorCarpeta = {};
-  if (idsCarpetasFormato.length > 0) {
-    const { data: archivosFormato } = await supabase
-      .from("formatos_archivo")
-      .select("id, carpeta_id, nombre_archivo")
-      .in("carpeta_id", idsCarpetasFormato)
-      .order("nombre_archivo");
-    (archivosFormato || []).forEach((a) => {
-      if (!archivosPorCarpeta[a.carpeta_id]) archivosPorCarpeta[a.carpeta_id] = [];
-      archivosPorCarpeta[a.carpeta_id].push(a);
-    });
-  }
-  const carpetasConArchivos = (carpetasFormato || [])
-    .map((c) => ({ ...c, archivos: archivosPorCarpeta[c.id] || [] }))
-    .filter((c) => c.archivos.length > 0);
+  // Solo Word/Excel se pueden rellenar — cualquier otro tipo de
+  // archivo de la biblioteca (PDF, imágenes...) queda fuera de esta
+  // lista, sin importar en qué carpeta esté.
+  const nombreCarpeta = {};
+  (carpetas || []).forEach((c) => {
+    nombreCarpeta[c.id] = c.nombre;
+  });
+  const archivosRellenables = (archivos || []).filter((a) => /\.(docx|xlsx)$/i.test(a.nombre_archivo));
+  const archivosPorCarpeta = {};
+  archivosRellenables.forEach((a) => {
+    const nombre = nombreCarpeta[a.carpeta_id] || "Otros";
+    if (!archivosPorCarpeta[nombre]) archivosPorCarpeta[nombre] = [];
+    archivosPorCarpeta[nombre].push(a);
+  });
+  const carpetasConArchivos = Object.entries(archivosPorCarpeta).map(([nombre, items]) => ({
+    id: nombre,
+    nombre,
+    archivos: items,
+  }));
 
   const rutas = (documentos || []).map((d) => d.ruta_storage);
   let urlPorRuta = {};

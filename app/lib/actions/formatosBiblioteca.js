@@ -8,6 +8,11 @@ import { sanitizarNombreArchivo } from "@/app/lib/sanitizarNombreArchivo";
 
 const TIPOS_FORMATO = ["docx", "xlsx"];
 
+function esArchivoFormato(nombreArchivo) {
+  const ext = (nombreArchivo || "").split(".").pop()?.toLowerCase();
+  return TIPOS_FORMATO.includes(ext);
+}
+
 async function requireAppAdmin(supabase, user) {
   const { data: profile } = await supabase
     .from("profiles")
@@ -144,10 +149,12 @@ export async function deleteCarpeta(id, parentId) {
 }
 
 // Sube un archivo dentro de una carpeta de la biblioteca compartida
-// (una sola copia, visible para todas las empresas). Si la carpeta
-// está marcada "es_formato", solo se aceptan Word/Excel (para poder
-// rellenar marcadores más adelante); las demás aceptan cualquier
-// archivo. Solo el app admin puede subir.
+// (una sola copia, visible para todas las empresas) — cualquier tipo
+// de archivo, en cualquier carpeta. Si el archivo es Word (.docx) o
+// Excel (.xlsx), automáticamente se genera la versión rellena con los
+// marcadores entre paréntesis en todas las empresas (sin importar en
+// qué carpeta quedó guardado); los demás tipos de archivo se guardan
+// tal cual, como referencia. Solo el app admin puede subir.
 export async function subirArchivoBiblioteca(formData) {
   const supabase = createClient();
   const user = await requireUser(supabase);
@@ -166,17 +173,8 @@ export async function subirArchivoBiblioteca(formData) {
     return { error: "Selecciona un archivo." };
   }
 
-  const { data: carpeta } = await supabase
-    .from("formatos_carpeta")
-    .select("es_formato")
-    .eq("id", carpetaId)
-    .single();
-
   const nombreOriginal = file.name || "documento";
   const ext = nombreOriginal.split(".").pop()?.toLowerCase();
-  if (carpeta?.es_formato && !TIPOS_FORMATO.includes(ext)) {
-    return { error: "Esta carpeta es de Formatos: solo se aceptan Word (.docx) o Excel (.xlsx)." };
-  }
 
   const rutaStorage = `${carpetaId}/${Date.now()}-${sanitizarNombreArchivo(nombreOriginal)}`;
   const { error: uploadError } = await supabase.storage
@@ -202,10 +200,10 @@ export async function subirArchivoBiblioteca(formData) {
     return { error: insertError.message };
   }
 
-  // Si es un formato (Word/Excel con marcadores), lo genera de una
-  // vez en todas las empresas — no hace falta entrar empresa por
+  // Si es un Word/Excel, lo genera de una vez en todas las empresas
+  // (sin importar la carpeta) — no hace falta entrar empresa por
   // empresa a darle "Generar para esta empresa".
-  if (carpeta?.es_formato) {
+  if (esArchivoFormato(nombreOriginal)) {
     try {
       const bytes = await file.arrayBuffer();
       await generarFormatoParaTodasLasEmpresas(supabase, user.id, { nombreOriginal, ext, bytes });

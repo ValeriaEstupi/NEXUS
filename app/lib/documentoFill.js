@@ -93,21 +93,10 @@ export async function generarFormatoParaTodasLasEmpresas(supabase, userId, { nom
 }
 
 // Cuando se crea una empresa NUEVA, genera de una vez la versión
-// rellena de TODOS los formatos que ya existan en la biblioteca
-// compartida. También "best effort".
+// rellena de TODOS los formatos Word/Excel que ya existan en la
+// biblioteca compartida (en cualquier carpeta). También "best effort".
 export async function generarBibliotecaParaEmpresa(supabase, userId, empresa) {
-  const { data: carpetas } = await supabase
-    .from("formatos_carpeta")
-    .select("id")
-    .eq("es_formato", true);
-
-  const idsCarpetas = (carpetas || []).map((c) => c.id);
-  if (idsCarpetas.length === 0) return;
-
-  const { data: archivos } = await supabase
-    .from("formatos_archivo")
-    .select("nombre_archivo, ruta_storage")
-    .in("carpeta_id", idsCarpetas);
+  const { data: archivos } = await supabase.from("formatos_archivo").select("nombre_archivo, ruta_storage");
 
   for (const archivo of archivos || []) {
     const ext = extensionDe(archivo.nombre_archivo);

@@ -20,7 +20,7 @@ const BANNERS = [
   "linear-gradient(135deg, #2563eb 0%, #1e3a8a 100%)",
 ];
 
-export default function CarpetaClient({ carpetaId, nombreActual, rutaSegmentos, subcarpetas, archivos, esFormato, isAppAdmin }) {
+export default function CarpetaClient({ carpetaId, nombreActual, rutaSegmentos, subcarpetas, archivos, isAppAdmin }) {
   const [error, setError] = useState(null);
   const [pending, startTransition] = useTransition();
 
@@ -111,7 +111,7 @@ export default function CarpetaClient({ carpetaId, nombreActual, rutaSegmentos, 
 
           {isAppAdmin && (
             <form id="subir-archivo-form" action={handleSubirArchivo} className="inline-form-row">
-              <input type="file" name="archivo" accept={esFormato ? ".docx,.xlsx" : undefined} required />
+              <input type="file" name="archivo" required />
               <button type="submit" disabled={pending}>
                 {pending ? "Subiendo..." : "Agregar archivo"}
               </button>
@@ -127,12 +127,6 @@ export default function CarpetaClient({ carpetaId, nombreActual, rutaSegmentos, 
             <div>
               <label>Nombre</label>
               <input type="text" name="nombre" placeholder="ej. Marco Estratégico" required />
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 16 }}>
-              <input type="checkbox" name="es_formato" id="es_formato" style={{ width: "auto", margin: 0 }} />
-              <label htmlFor="es_formato" style={{ margin: 0 }}>
-                Es de Formatos (solo Word/Excel con marcadores)
-              </label>
             </div>
             <button type="submit" disabled={pending}>
               {pending ? "Creando..." : "Crear subcarpeta"}
@@ -180,7 +174,6 @@ function SubcarpetaCard({ carpeta, href, banner, isAppAdmin, parentId, setError,
           </div>
           <div className="group-card-body">
             <strong>{carpeta.nombre}</strong>
-            {carpeta.es_formato && <span className="muted small">Word/Excel con marcadores</span>}
           </div>
         </Link>
       )}

@@ -67,12 +67,12 @@ export default async function CarpetaFormatosPage({ params }) {
           archivos.
         </p>
       )}
-      {carpeta?.es_formato && (
+      {carpeta && (
         <p className="page-intro">
-          Solo Word (.docx) o Excel (.xlsx) con marcadores entre
-          paréntesis — por ejemplo "(aquí va el nombre de la empresa)"
-          o "(aquí va el NIT)". Desde la pantalla "Formatos" de cada
-          empresa se genera la versión rellena con sus datos.
+          Cualquier tipo de archivo. Si subes un Word (.docx) o Excel
+          (.xlsx) con marcadores entre paréntesis — por ejemplo "(aquí
+          va el nombre de la empresa)" o "(aquí va el NIT)" — se genera
+          automáticamente la versión rellena en todas las empresas.
         </p>
       )}
 
@@ -82,7 +82,6 @@ export default async function CarpetaFormatosPage({ params }) {
         rutaSegmentos={ruta}
         subcarpetas={subcarpetas || []}
         archivos={archivosConUrl}
-        esFormato={!!carpeta?.es_formato}
         isAppAdmin={!!profile?.is_app_admin}
       />
     </div>
