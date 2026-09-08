@@ -187,6 +187,16 @@ export function UsersIcon(props) {
   );
 }
 
+export function SearchShieldIcon(props) {
+  return (
+    <IconBase {...props}>
+      <path d="M11 2.5l7.5 3.5v4.6c0 4.4-2.9 7.6-7.5 9.4-1.3-.5-2.5-1.2-3.5-2" />
+      <circle cx="8.2" cy="14.3" r="3.3" />
+      <path d="M10.5 16.6l2.3 2.3" />
+    </IconBase>
+  );
+}
+
 export function LayersIcon(props) {
   return (
     <IconBase {...props}>

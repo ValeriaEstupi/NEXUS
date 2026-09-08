@@ -284,6 +284,72 @@ from (values
 join public.normas_iso n on n.codigo = v.norma_codigo
 join public.fases_phva f on f.nombre = v.fase_nombre;
 
+
+-- ---------------------------------------------------------------------
+-- Plantilla: SARLAFT — Sistema de Administración del Riesgo de Lavado
+-- de Activos y de la Financiación del Terrorismo. Para una sociedad
+-- comercial vigilada por la Superintendencia de Sociedades (como una
+-- empresa de transporte especial), el nombre técnico vigente del
+-- sistema es SAGRLAFT (Circular Externa 100-000016 de 2020, que
+-- reemplazó a la Circular Externa 100-000005 de 2014) — "SARLAFT" es
+-- el término que usa la Superintendencia Financiera para sus propios
+-- vigilados, pero en la práctica ambos nombres se usan indistintamente
+-- para el mismo tipo de sistema. Se conserva el nombre SARLAFT en la
+-- app por ser el más reconocido, con esta aclaración en pantalla.
+-- Referencias: Circular Externa 100-000016/2020 (Supersociedades),
+-- Ley 526 de 1999 (creación de la UIAF), Ley 1121 de 2006.
+-- ---------------------------------------------------------------------
+insert into public.requisitos_sarlaft_template (fase_id, componente, codigo, descripcion, fuente_normativa, orden)
+select f.id, v.componente, v.codigo, v.descripcion, v.fuente, v.orden
+from (values
+  -- PLANEAR — Política y órganos de control
+  ('Planear', 'Política y órganos de control', 'P.1', 'Política de administración del riesgo LA/FT aprobada por la Junta Directiva o el Representante Legal.', 'Circular Externa 100-000016/2020 (Supersociedades)', 1),
+  ('Planear', 'Política y órganos de control', 'P.2', 'Oficial de Cumplimiento (principal y suplente) designado, con dedicación y jerarquía suficientes.', 'Circular Externa 100-000016/2020 (Supersociedades)', 2),
+  ('Planear', 'Política y órganos de control', 'P.3', 'Manual SARLAFT documentado, actualizado y divulgado a toda la organización.', 'Circular Externa 100-000016/2020 (Supersociedades)', 3),
+  ('Planear', 'Política y órganos de control', 'P.4', 'Código de ética y conducta que incorpora lineamientos de prevención de LA/FT.', 'Circular Externa 100-000016/2020 (Supersociedades)', 4),
+  ('Planear', 'Política y órganos de control', 'P.5', 'Funciones y responsabilidades en LA/FT de Junta Directiva, Representante Legal y Oficial de Cumplimiento, definidas por escrito.', 'Circular Externa 100-000016/2020 (Supersociedades)', 5),
+
+  -- PLANEAR — Identificación del riesgo
+  ('Planear', 'Identificación del riesgo', 'P.6', 'Metodología de identificación de factores de riesgo (clientes, contrapartes, empleados, proveedores, productos, canales, jurisdicciones).', 'Circular Externa 100-000016/2020 (Supersociedades)', 6),
+  ('Planear', 'Identificación del riesgo', 'P.7', 'Matriz de riesgo LA/FT elaborada, con calificación de riesgo inherente por factor.', 'Circular Externa 100-000016/2020 (Supersociedades)', 7),
+  ('Planear', 'Identificación del riesgo', 'P.8', 'Procedimiento de debida diligencia (conocimiento del cliente/contraparte) aplicado en la vinculación.', 'Circular Externa 100-000016/2020 (Supersociedades)', 8),
+  ('Planear', 'Identificación del riesgo', 'P.9', 'Procedimiento de debida diligencia intensificada para contrapartes de mayor riesgo (PEP y similares).', 'Circular Externa 100-000016/2020 (Supersociedades)', 9),
+  ('Planear', 'Identificación del riesgo', 'P.10', 'Conocimiento del mercado: segmentación de clientes, contrapartes y proveedores según su perfil de riesgo.', 'Circular Externa 100-000016/2020 (Supersociedades)', 10),
+
+  -- HACER — Medición del riesgo
+  ('Hacer', 'Medición del riesgo', 'H.1', 'Metodología de medición del riesgo inherente y residual, aplicada a cada factor de riesgo.', 'Circular Externa 100-000016/2020 (Supersociedades)', 11),
+  ('Hacer', 'Medición del riesgo', 'H.2', 'Perfil de riesgo LA/FT de la empresa, consolidado y actualizado periódicamente.', 'Circular Externa 100-000016/2020 (Supersociedades)', 12),
+
+  -- HACER — Control del riesgo
+  ('Hacer', 'Control del riesgo', 'H.3', 'Señales de alerta definidas para detectar operaciones inusuales o sospechosas.', 'Circular Externa 100-000016/2020 (Supersociedades)', 13),
+  ('Hacer', 'Control del riesgo', 'H.4', 'Procedimiento de análisis y documentación de operaciones inusuales detectadas.', 'Circular Externa 100-000016/2020 (Supersociedades)', 14),
+  ('Hacer', 'Control del riesgo', 'H.5', 'Consulta en listas restrictivas y vinculantes (ONU, OFAC y otras) en la vinculación y de forma periódica.', 'Circular Externa 100-000016/2020 (Supersociedades)', 15),
+  ('Hacer', 'Control del riesgo', 'H.6', 'Segregación de funciones entre las áreas comercial/operativa y la función de cumplimiento.', 'Circular Externa 100-000016/2020 (Supersociedades)', 16),
+
+  -- HACER — Capacitación y divulgación
+  ('Hacer', 'Capacitación y divulgación', 'H.7', 'Programa anual de capacitación en LA/FT, dirigido según el nivel de riesgo de cada cargo.', 'Circular Externa 100-000016/2020 (Supersociedades)', 17),
+  ('Hacer', 'Capacitación y divulgación', 'H.8', 'Registro y evaluación de la capacitación en LA/FT impartida al personal.', 'Circular Externa 100-000016/2020 (Supersociedades)', 18),
+  ('Hacer', 'Capacitación y divulgación', 'H.9', 'Divulgación efectiva del código de ética y del manual SARLAFT a todo el personal.', 'Circular Externa 100-000016/2020 (Supersociedades)', 19),
+
+  -- VERIFICAR — Monitoreo del riesgo
+  ('Verificar', 'Monitoreo del riesgo', 'V.1', 'Monitoreo continuo de operaciones para identificar comportamientos inusuales.', 'Circular Externa 100-000016/2020 (Supersociedades)', 20),
+  ('Verificar', 'Monitoreo del riesgo', 'V.2', 'Indicadores de gestión del riesgo LA/FT (alertas generadas, ROS presentados, capacitaciones realizadas).', 'Circular Externa 100-000016/2020 (Supersociedades)', 21),
+
+  -- VERIFICAR — Auditoría
+  ('Verificar', 'Auditoría', 'V.3', 'Auditoría anual (interna o externa) del sistema SARLAFT.', 'Circular Externa 100-000016/2020 (Supersociedades)', 22),
+  ('Verificar', 'Auditoría', 'V.4', 'Revisión del sistema por la Junta Directiva/Representante Legal, con seguimiento a los hallazgos.', 'Circular Externa 100-000016/2020 (Supersociedades)', 23),
+
+  -- ACTUAR — Reportes
+  ('Actuar', 'Reportes', 'A.1', 'Reporte de Operación Sospechosa (ROS) a la UIAF, cuando corresponda.', 'Ley 526 de 1999 (UIAF)', 24),
+  ('Actuar', 'Reportes', 'A.2', 'Reporte de ausencia de operaciones sospechosas ante la UIAF, cuando no hubo ROS en el periodo.', 'Ley 526 de 1999 (UIAF)', 25),
+  ('Actuar', 'Reportes', 'A.3', 'Conservación de los soportes documentales del SARLAFT por el término legal (mínimo 5 años).', 'Circular Externa 100-000016/2020 (Supersociedades)', 26),
+
+  -- ACTUAR — Mejora continua
+  ('Actuar', 'Mejora continua', 'A.4', 'Plan de mejoramiento con acciones correctivas derivadas de hallazgos de auditoría o monitoreo.', 'Circular Externa 100-000016/2020 (Supersociedades)', 27),
+  ('Actuar', 'Mejora continua', 'A.5', 'Actualización del manual y la matriz de riesgo ante cambios normativos o del entorno del negocio.', 'Circular Externa 100-000016/2020 (Supersociedades)', 28)
+) as v(fase_nombre, componente, codigo, descripcion, fuente, orden)
+join public.fases_phva f on f.nombre = v.fase_nombre;
+
 -- =====================================================================
 -- FIN DEL SEED — ya puedes crear tu primera empresa desde la app.
 -- =====================================================================

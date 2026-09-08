@@ -11,16 +11,19 @@ import {
   deleteEstandarSgsst,
   updateRequisitoIso,
   deleteRequisitoIso,
+  updateRequisitoSarlaft,
+  deleteRequisitoSarlaft,
 } from "@/app/lib/actions/cumplimiento";
 import { ESTADO_CUMPLIMIENTO_LABEL, formatFecha, estadoVencimiento } from "@/app/lib/helpers";
 
-// Qué acción de catálogo llamar según el tipo de ítem (PESV, SG-SST o
-// ISO), y cómo se llama ese ítem en los botones ("Editar requisito"
-// vs "Editar estándar").
+// Qué acción de catálogo llamar según el tipo de ítem (PESV, SG-SST,
+// ISO o SARLAFT), y cómo se llama ese ítem en los botones ("Editar
+// requisito" vs "Editar estándar").
 const CATALOG_FNS = {
   pesv: { update: updateRequisitoPesv, delete: deleteRequisitoPesv, label: "requisito" },
   sgsst: { update: updateEstandarSgsst, delete: deleteEstandarSgsst, label: "estándar" },
   iso: { update: updateRequisitoIso, delete: deleteRequisitoIso, label: "requisito" },
+  sarlaft: { update: updateRequisitoSarlaft, delete: deleteRequisitoSarlaft, label: "requisito" },
 };
 
 // Una fila de checklist reutilizada por PESV, SG-SST e ISO: muestra el
@@ -98,6 +101,9 @@ export default function ChecklistItem({ item, meta, profiles, pilares, fases, no
       updates.puntaje = formData.get("puntaje");
     } else if (meta.tipo === "iso") {
       updates.normaId = formData.get("norma_id");
+    } else if (meta.tipo === "sarlaft") {
+      updates.componente = formData.get("componente");
+      updates.fuenteNormativa = formData.get("fuente") || null;
     }
     const res = await CATALOG_FNS[meta.tipo].update(meta.id, updates, empresaId);
     if (res?.error) setError(res.error);
@@ -210,7 +216,7 @@ export default function ChecklistItem({ item, meta, profiles, pilares, fases, no
                       </select>
                     </div>
                   )}
-                  {meta.tipo === "sgsst" && (
+                  {(meta.tipo === "sgsst" || meta.tipo === "sarlaft") && (
                     <div>
                       <label>Componente</label>
                       <input name="componente" defaultValue={meta.componente || ""} required />
@@ -245,7 +251,7 @@ export default function ChecklistItem({ item, meta, profiles, pilares, fases, no
                     <label>Descripción</label>
                     <textarea name="descripcion" rows={2} defaultValue={meta.descripcion} required />
                   </div>
-                  {meta.tipo === "pesv" && (
+                  {(meta.tipo === "pesv" || meta.tipo === "sarlaft") && (
                     <div style={{ flexBasis: "100%" }}>
                       <label>Fuente normativa</label>
                       <input name="fuente" defaultValue={meta.fuente || ""} />

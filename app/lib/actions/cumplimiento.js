@@ -16,6 +16,7 @@ function revalidateEmpresa(empresaId) {
   revalidatePath(`/dashboard/empresas/${empresaId}/iso-9001`);
   revalidatePath(`/dashboard/empresas/${empresaId}/iso-14001`);
   revalidatePath(`/dashboard/empresas/${empresaId}/iso-45001`);
+  revalidatePath(`/dashboard/empresas/${empresaId}/sarlaft`);
   revalidatePath(`/dashboard/empresas/${empresaId}`);
 }
 
@@ -407,5 +408,90 @@ export async function deleteRequisitoIso(id, empresaId) {
   }
 
   if (empresaId) revalidateIso(empresaId);
+  return { success: true };
+}
+
+// Agrega un requisito nuevo al catálogo del SARLAFT de una empresa.
+export async function addRequisitoSarlaft({ empresaId, faseId, componente, codigo, descripcion }) {
+  const supabase = createClient();
+  await requireUser(supabase);
+
+  const cleanDescripcion = (descripcion || "").trim();
+  if (!cleanDescripcion) {
+    return { error: "Escribe la descripción del requisito." };
+  }
+  if (!(componente || "").trim()) {
+    return { error: "Escribe el componente al que pertenece." };
+  }
+
+  const { error } = await supabase.from("requisitos_sarlaft").insert({
+    empresa_id: empresaId,
+    fase_id: faseId || null,
+    componente: componente.trim(),
+    codigo: codigo || null,
+    descripcion: cleanDescripcion,
+    fuente_normativa: "Agregado manualmente por el equipo",
+  });
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  revalidatePath(`/dashboard/empresas/${empresaId}/sarlaft`);
+  return { success: true };
+}
+
+// Edita un requisito ya existente del catálogo SARLAFT, o lo
+// activa/desactiva (en vez de borrarlo, para no perder el historial).
+export async function updateRequisitoSarlaft(id, updates, empresaId) {
+  const supabase = createClient();
+  await requireUser(supabase);
+
+  const payload = {};
+  if (updates.faseId !== undefined) payload.fase_id = updates.faseId || null;
+  if (updates.componente !== undefined) {
+    const clean = (updates.componente || "").trim();
+    if (!clean) return { error: "El componente no puede quedar vacío." };
+    payload.componente = clean;
+  }
+  if (updates.codigo !== undefined) payload.codigo = updates.codigo || null;
+  if (updates.descripcion !== undefined) {
+    const clean = (updates.descripcion || "").trim();
+    if (!clean) return { error: "La descripción no puede quedar vacía." };
+    payload.descripcion = clean;
+  }
+  if (updates.fuenteNormativa !== undefined)
+    payload.fuente_normativa = updates.fuenteNormativa || null;
+  if (updates.activo !== undefined) payload.activo = updates.activo;
+
+  const { data, error } = await supabase
+    .from("requisitos_sarlaft")
+    .update(payload)
+    .eq("id", id)
+    .select("id");
+
+  if (error) {
+    return { error: error.message };
+  }
+  if (!data || data.length === 0) {
+    return { error: "No se pudo guardar: no tienes permiso de edición sobre esta empresa." };
+  }
+
+  if (empresaId) revalidatePath(`/dashboard/empresas/${empresaId}/sarlaft`);
+  return { success: true };
+}
+
+// Borra un requisito del catálogo SARLAFT. Solo admin de la empresa.
+export async function deleteRequisitoSarlaft(id, empresaId) {
+  const supabase = createClient();
+  await requireUser(supabase);
+
+  const { error } = await supabase.from("requisitos_sarlaft").delete().eq("id", id);
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  if (empresaId) revalidatePath(`/dashboard/empresas/${empresaId}/sarlaft`);
   return { success: true };
 }

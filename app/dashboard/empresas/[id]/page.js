@@ -19,6 +19,7 @@ export default async function EmpresaResumenPage({ params }) {
     { data: estandares },
     { data: requisitosIso },
     { data: normasIso },
+    { data: requisitosSarlaft },
     { count: totalVehiculos },
     { count: totalConductores },
     { data: vehiculos },
@@ -31,6 +32,7 @@ export default async function EmpresaResumenPage({ params }) {
     supabase.from("estandares_sgsst").select("id, activo, puntaje").eq("empresa_id", empresaId),
     supabase.from("requisitos_iso").select("id, norma_id, activo").eq("empresa_id", empresaId),
     supabase.from("normas_iso").select("id, codigo, nombre").order("orden"),
+    supabase.from("requisitos_sarlaft").select("id, activo").eq("empresa_id", empresaId),
     supabase.from("vehiculos").select("id", { count: "exact", head: true }).eq("empresa_id", empresaId),
     supabase.from("conductores").select("id", { count: "exact", head: true }).eq("empresa_id", empresaId),
     supabase
@@ -47,17 +49,19 @@ export default async function EmpresaResumenPage({ params }) {
     // sola vez y se cruza acá mismo por id.
     supabase
       .from("cumplimiento_items")
-      .select("requisito_pesv_id, estandar_sgsst_id, requisito_iso_id, estado")
+      .select("requisito_pesv_id, estandar_sgsst_id, requisito_iso_id, requisito_sarlaft_id, estado")
       .eq("empresa_id", empresaId),
   ]);
 
   const estadoPorRequisitoPesv = {};
   const estadoPorEstandar = {};
   const estadoPorRequisitoIso = {};
+  const estadoPorRequisitoSarlaft = {};
   (cumplimientos || []).forEach((c) => {
     if (c.requisito_pesv_id) estadoPorRequisitoPesv[c.requisito_pesv_id] = c.estado;
     if (c.estandar_sgsst_id) estadoPorEstandar[c.estandar_sgsst_id] = c.estado;
     if (c.requisito_iso_id) estadoPorRequisitoIso[c.requisito_iso_id] = c.estado;
+    if (c.requisito_sarlaft_id) estadoPorRequisitoSarlaft[c.requisito_sarlaft_id] = c.estado;
   });
 
   const requisitosActivos = (requisitos || []).filter((r) => r.activo);
@@ -80,6 +84,11 @@ export default async function EmpresaResumenPage({ params }) {
     avancePorNorma[norma.codigo] = items.length > 0 ? Math.round((cumplidos / items.length) * 100) : 0;
   }
 
+  const sarlaftActivos = (requisitosSarlaft || []).filter((r) => r.activo);
+  const totalSarlaft = sarlaftActivos.length;
+  const cumplidosSarlaft = sarlaftActivos.filter((r) => estadoPorRequisitoSarlaft[r.id] === "cumplido").length;
+  const avanceSarlaft = totalSarlaft > 0 ? Math.round((cumplidosSarlaft / totalSarlaft) * 100) : 0;
+
   let alertasVencimiento = 0;
   for (const v of vehiculos || []) {
     if (["vencido", "por_vencer"].includes(estadoVencimiento(v.fecha_vencimiento_soat))) alertasVencimiento++;
@@ -95,7 +104,7 @@ export default async function EmpresaResumenPage({ params }) {
   return (
     <div className="page-body">
       <h1>{empresa?.razon_social}</h1>
-      <p className="page-intro">Resumen de cumplimiento del PESV, el SG-SST y el Sistema de Gestión ISO.</p>
+      <p className="page-intro">Resumen de cumplimiento del PESV, el SG-SST, el Sistema de Gestión ISO y el SARLAFT.</p>
 
       <div className="stat-grid">
         <Link href={`${base}/pesv`} className="stat-card" style={{ textDecoration: "none", color: "inherit" }}>
@@ -117,6 +126,10 @@ export default async function EmpresaResumenPage({ params }) {
         <Link href={`${base}/iso-45001`} className="stat-card" style={{ textDecoration: "none", color: "inherit" }}>
           <div className="stat-label">ISO 45001 (SST)</div>
           <div className="stat-value">{avancePorNorma["45001"] || 0}%</div>
+        </Link>
+        <Link href={`${base}/sarlaft`} className="stat-card" style={{ textDecoration: "none", color: "inherit" }}>
+          <div className="stat-label">Avance SARLAFT</div>
+          <div className="stat-value">{avanceSarlaft}%</div>
         </Link>
         <Link href={`${base}/vehiculos`} className="stat-card" style={{ textDecoration: "none", color: "inherit" }}>
           <div className="stat-label">Vehículos</div>
@@ -152,6 +165,7 @@ export default async function EmpresaResumenPage({ params }) {
           <Link href={`${base}/iso-9001`} className="button-like">Checklist ISO 9001</Link>
           <Link href={`${base}/iso-14001`} className="button-like">Checklist ISO 14001</Link>
           <Link href={`${base}/iso-45001`} className="button-like">Checklist ISO 45001</Link>
+          <Link href={`${base}/sarlaft`} className="button-like">Checklist SARLAFT</Link>
           <Link href={`${base}/incidentes`} className="button-like">Reportar incidente</Link>
           <Link href={`${base}/indicadores`} className="button-like">Ver indicadores</Link>
         </div>
