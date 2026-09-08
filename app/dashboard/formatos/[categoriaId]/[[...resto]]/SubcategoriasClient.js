@@ -5,7 +5,7 @@ import { useState, useTransition } from "react";
 import { crearSubcategoria, deleteSubcategoria } from "@/app/lib/actions/formatosBiblioteca";
 import { LayersIcon } from "@/app/dashboard/Icons";
 
-const BANNER = "linear-gradient(135deg, #b45309 0%, #78350f 100%)";
+const BANNER = "linear-gradient(135deg, #2563eb 0%, #1e3a8a 100%)";
 
 export default function SubcategoriasClient({ categoriaId, subcategorias, isAppAdmin, soloFormulario }) {
   const [error, setError] = useState(null);
