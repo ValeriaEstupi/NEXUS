@@ -23,9 +23,12 @@ export default async function DocumentosPage({ params }) {
       .eq("empresa_id", empresaId)
       .order("created_at", { ascending: false }),
     supabase.from("formatos_categoria").select("id, orden, nombre").order("orden"),
+    // Solo la subcarpeta "formatos" (Word/Excel con marcadores) — la
+    // subcarpeta "documentos" es de referencia, no se rellena.
     supabase
       .from("formatos_plantilla")
       .select("id, categoria_id, nombre_archivo")
+      .eq("subcarpeta", "formatos")
       .order("nombre_archivo"),
   ]);
 

@@ -746,9 +746,14 @@ insert into public.formatos_categoria (orden, nombre) values
   (5, 'G. Compras'),
   (6, 'G. Mejora');
 
+-- Dentro de cada categoría hay dos subcarpetas: "documentos" (archivo
+-- de referencia, cualquier tipo, se descarga tal cual) y "formatos"
+-- (Word/Excel con marcadores entre paréntesis, se puede generar la
+-- versión rellena para una empresa puntual).
 create table public.formatos_plantilla (
   id uuid primary key default gen_random_uuid(),
   categoria_id integer not null references public.formatos_categoria(id),
+  subcarpeta text not null default 'formatos' check (subcarpeta in ('documentos', 'formatos')),
   nombre_archivo text not null,
   ruta_storage text not null,
   subido_por uuid references public.profiles(id),

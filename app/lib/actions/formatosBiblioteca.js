@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "./_shared";
 
-const TIPOS_SOPORTADOS = ["docx", "xlsx"];
+const TIPOS_FORMATO = ["docx", "xlsx"];
 
 async function requireAppAdmin(supabase, user) {
   const { data: profile } = await supabase
@@ -15,18 +15,22 @@ async function requireAppAdmin(supabase, user) {
   return !!profile?.is_app_admin;
 }
 
-// Sube un formato maestro a la biblioteca compartida (una sola copia,
-// visible para todas las empresas de la plataforma) — solo el app
-// admin puede hacerlo, porque afecta a todo el mundo a la vez.
+// Sube un archivo a la biblioteca compartida (una sola copia, visible
+// para todas las empresas de la plataforma) — solo el app admin puede
+// hacerlo, porque afecta a todo el mundo a la vez. La subcarpeta
+// "documentos" acepta cualquier tipo de archivo (se descarga tal
+// cual); la subcarpeta "formatos" solo Word/Excel (de esos se puede
+// generar la versión rellena con los datos de una empresa).
 export async function subirPlantillaBiblioteca(formData) {
   const supabase = createClient();
   const user = await requireUser(supabase);
 
   if (!(await requireAppAdmin(supabase, user))) {
-    return { error: "Solo el app admin puede agregar formatos a la biblioteca." };
+    return { error: "Solo el app admin puede agregar archivos a la biblioteca." };
   }
 
   const categoriaId = formData.get("categoria_id");
+  const subcarpeta = formData.get("subcarpeta") === "documentos" ? "documentos" : "formatos";
   const file = formData.get("archivo");
 
   if (!categoriaId) {
@@ -38,11 +42,11 @@ export async function subirPlantillaBiblioteca(formData) {
 
   const nombreOriginal = file.name || "documento";
   const ext = nombreOriginal.split(".").pop()?.toLowerCase();
-  if (!TIPOS_SOPORTADOS.includes(ext)) {
-    return { error: "Solo se aceptan formatos de Word (.docx) o Excel (.xlsx)." };
+  if (subcarpeta === "formatos" && !TIPOS_FORMATO.includes(ext)) {
+    return { error: "En 'Formatos' solo se aceptan Word (.docx) o Excel (.xlsx) — para rellenar marcadores." };
   }
 
-  const rutaStorage = `${categoriaId}/${Date.now()}-${nombreOriginal}`;
+  const rutaStorage = `${categoriaId}/${subcarpeta}/${Date.now()}-${nombreOriginal}`;
   const { error: uploadError } = await supabase.storage
     .from("formatos")
     .upload(rutaStorage, file);
@@ -57,6 +61,7 @@ export async function subirPlantillaBiblioteca(formData) {
 
   const { error: insertError } = await supabase.from("formatos_plantilla").insert({
     categoria_id: categoriaId,
+    subcarpeta,
     nombre_archivo: nombreOriginal,
     ruta_storage: rutaStorage,
     subido_por: user.id,
@@ -75,7 +80,7 @@ export async function deletePlantillaBiblioteca(id, rutaStorage) {
   const user = await requireUser(supabase);
 
   if (!(await requireAppAdmin(supabase, user))) {
-    return { error: "Solo el app admin puede borrar formatos de la biblioteca." };
+    return { error: "Solo el app admin puede borrar archivos de la biblioteca." };
   }
 
   await supabase.storage.from("formatos").remove([rutaStorage]);
