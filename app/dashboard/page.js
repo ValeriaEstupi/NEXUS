@@ -44,16 +44,6 @@ export default async function DashboardHome() {
       <h1>Hola, {displayName} 👋</h1>
       <p className="page-intro">Elige una empresa para ver su cumplimiento.</p>
 
-      <Link href="/dashboard/formatos" className="biblioteca-card">
-        <LayersIcon size={22} />
-        <div>
-          <strong>Biblioteca de formatos</strong>
-          <span className="muted small">
-            Formatos maestros compartidos por todas las empresas, en 6 categorías.
-          </span>
-        </div>
-      </Link>
-
       <section className="section-card">
         <h2>🏢 Tus empresas</h2>
 
@@ -72,6 +62,16 @@ export default async function DashboardHome() {
           <p className="muted">Todavía no eres parte de ninguna empresa. Crea la primera abajo.</p>
         )}
       </section>
+
+      <Link href="/dashboard/formatos" className="biblioteca-card">
+        <LayersIcon size={22} />
+        <div>
+          <strong>Biblioteca de formatos</strong>
+          <span className="muted small">
+            Formatos maestros compartidos por todas las empresas, en 6 categorías.
+          </span>
+        </div>
+      </Link>
 
       {profile?.is_app_admin && (
         <section className="section-card">
