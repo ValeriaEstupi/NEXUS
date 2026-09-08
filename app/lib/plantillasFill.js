@@ -43,10 +43,19 @@ function resolverMarcador(fraseNormalizada, datos) {
 }
 
 // Reemplaza los marcadores dentro de un bloque de texto/XML. Solo
-// toca paréntesis de largo razonable (3-90 caracteres) que contengan
-// al menos una letra, para no meterse con sintaxis del archivo.
+// toca paréntesis que contengan al menos una letra, para no meterse
+// con sintaxis del archivo.
+//
+// El límite de 3.000 caracteres entre paréntesis no es por el largo
+// del texto que se ve en pantalla — es porque Word suele partir una
+// misma palabra en varios "pedazos" internos (por ejemplo, si alguna
+// letra quedó con un formato levemente distinto), y entre paréntesis
+// visualmente cortos como "(NIT)" puede haber cientos de caracteres
+// de marcado interno invisible. Un límite generoso cubre eso sin
+// arriesgarse a cruzar dos paréntesis sueltos que no tengan nada que
+// ver entre sí.
 export function rellenarPlaceholders(contenido, datosEmpresa) {
-  return contenido.replace(/\(([^()]{3,90})\)/g, (match, frase) => {
+  return contenido.replace(/\(([^()]{1,3000})\)/g, (match, frase) => {
     if (!/[a-zA-Záéíóúñ]/i.test(frase)) return match;
     const valor = resolverMarcador(normalizar(frase), datosEmpresa);
     return valor === null ? match : valor;
