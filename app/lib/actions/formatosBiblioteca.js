@@ -63,10 +63,13 @@ export async function renombrarCarpeta(id, nuevoNombre, parentId) {
   const nombre = (nuevoNombre || "").toString().trim();
   if (!nombre) return { error: "El nombre no puede quedar vacío." };
 
-  const { error } = await supabase.from("formatos_carpeta").update({ nombre }).eq("id", id);
+  const { data, error } = await supabase.from("formatos_carpeta").update({ nombre }).eq("id", id).select("id");
 
   if (error) {
     return { error: error.message };
+  }
+  if (!data || data.length === 0) {
+    return { error: "No se pudo guardar: no tienes permiso para editar la biblioteca." };
   }
 
   revalidatePath(rutaCarpeta(parentId));
@@ -104,13 +107,16 @@ export async function moverCarpeta(id, direccion, parentId) {
   const actual = hermanas[indice];
   const vecino = hermanas[vecinoIndice];
 
-  const [{ error: e1 }, { error: e2 }] = await Promise.all([
-    supabase.from("formatos_carpeta").update({ orden: vecino.orden }).eq("id", actual.id),
-    supabase.from("formatos_carpeta").update({ orden: actual.orden }).eq("id", vecino.id),
+  const [{ data: d1, error: e1 }, { data: d2, error: e2 }] = await Promise.all([
+    supabase.from("formatos_carpeta").update({ orden: vecino.orden }).eq("id", actual.id).select("id"),
+    supabase.from("formatos_carpeta").update({ orden: actual.orden }).eq("id", vecino.id).select("id"),
   ]);
 
   if (e1 || e2) {
     return { error: (e1 || e2).message };
+  }
+  if (!d1?.length || !d2?.length) {
+    return { error: "No se pudo reordenar: no tienes permiso para editar la biblioteca." };
   }
 
   revalidatePath(rutaCarpeta(parentId));

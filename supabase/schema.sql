@@ -744,6 +744,8 @@ create policy "Ver carpetas de formatos si estoy logueado"
   on public.formatos_carpeta for select using (auth.uid() is not null);
 create policy "Crear carpetas de formatos si soy app admin"
   on public.formatos_carpeta for insert with check (public.is_app_admin());
+create policy "Editar carpetas de formatos si soy app admin"
+  on public.formatos_carpeta for update using (public.is_app_admin());
 create policy "Borrar carpetas de formatos si soy app admin"
   on public.formatos_carpeta for delete using (public.is_app_admin());
 
