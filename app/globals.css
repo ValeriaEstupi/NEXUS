@@ -544,61 +544,80 @@ button.danger:hover {
   white-space: nowrap;
 }
 
+/* Cuando el badge es un <select> (el desplegable de Estado), el
+   navegador dibuja su propio botón/flecha nativo que no toma el color
+   de fondo del badge — se ve "a medias". Quitamos ese estilo nativo y
+   ponemos una flechita propia, para que todo el control quede del
+   mismo color de punta a punta. */
+select.badge {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  border: none;
+  margin-bottom: 0;
+  cursor: pointer;
+  padding: 3px 24px 3px 9px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%23374151' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 9px center;
+  background-size: 9px 6px;
+}
+
 .badge-pendiente {
-  background: #e5e7eb;
+  background-color: #e5e7eb;
   color: #374151;
 }
 .badge-en_progreso {
-  background: #dbeafe;
+  background-color: #dbeafe;
   color: #1d4ed8;
 }
 .badge-cumplido {
-  background: var(--success-soft);
+  background-color: var(--success-soft);
   color: var(--success);
 }
 .badge-no_aplica {
-  background: #f3f4f6;
+  background-color: #f3f4f6;
   color: var(--muted);
 }
 .badge-vigente {
-  background: var(--success-soft);
+  background-color: var(--success-soft);
   color: var(--success);
 }
 .badge-por_vencer {
-  background: var(--warning-soft);
+  background-color: var(--warning-soft);
   color: var(--warning);
 }
 .badge-vencido {
-  background: var(--danger-soft);
+  background-color: var(--danger-soft);
   color: var(--error);
 }
 .badge-sin_fecha {
-  background: #f3f4f6;
+  background-color: #f3f4f6;
   color: var(--muted);
 }
 .badge-abierto {
-  background: var(--danger-soft);
+  background-color: var(--danger-soft);
   color: var(--error);
 }
 .badge-en_investigacion {
-  background: var(--warning-soft);
+  background-color: var(--warning-soft);
   color: var(--warning);
 }
 .badge-cerrado {
-  background: var(--success-soft);
+  background-color: var(--success-soft);
   color: var(--success);
 }
 .badge-activo {
-  background: var(--success-soft);
+  background-color: var(--success-soft);
   color: var(--success);
 }
 .badge-inactivo,
 .badge-mantenimiento {
-  background: var(--warning-soft);
+  background-color: var(--warning-soft);
   color: var(--warning);
 }
 .badge-retirado {
-  background: #f3f4f6;
+  background-color: #f3f4f6;
   color: var(--muted);
 }
 
