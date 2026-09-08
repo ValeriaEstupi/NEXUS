@@ -7,13 +7,14 @@ import {
 } from "@/app/lib/actions/formatosBiblioteca";
 import { formatFechaHora } from "@/app/lib/helpers";
 
-export default function SubcarpetaClient({ categoriaId, subcarpeta, plantillas, isAppAdmin }) {
+export default function ArchivosClient({ categoriaId, subcategoriaId, subcarpeta, plantillas, isAppAdmin }) {
   const [error, setError] = useState(null);
   const [pending, startTransition] = useTransition();
 
   function handleUpload(formData) {
     setError(null);
     formData.set("categoria_id", categoriaId);
+    if (subcategoriaId) formData.set("subcategoria_id", subcategoriaId);
     formData.set("subcarpeta", subcarpeta);
     startTransition(async () => {
       const res = await subirPlantillaBiblioteca(formData);
@@ -24,7 +25,7 @@ export default function SubcarpetaClient({ categoriaId, subcarpeta, plantillas, 
 
   async function handleDelete(id, rutaStorage) {
     if (!confirm("¿Borrar este archivo de la biblioteca? Afecta a todas las empresas.")) return;
-    const res = await deletePlantillaBiblioteca(id, rutaStorage, categoriaId, subcarpeta);
+    const res = await deletePlantillaBiblioteca(id, rutaStorage, categoriaId, subcategoriaId, subcarpeta);
     if (res?.error) setError(res.error);
   }
 

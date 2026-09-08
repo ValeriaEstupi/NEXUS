@@ -746,13 +746,40 @@ insert into public.formatos_categoria (orden, nombre) values
   (5, 'G. Compras'),
   (6, 'G. Mejora');
 
--- Dentro de cada categoría hay dos subcarpetas: "documentos" (archivo
--- de referencia, cualquier tipo, se descarga tal cual) y "formatos"
--- (Word/Excel con marcadores entre paréntesis, se puede generar la
--- versión rellena para una empresa puntual).
+insert into public.formatos_subcategoria (categoria_id, orden, nombre)
+select c.id, v.orden, v.nombre
+from (values (1, 'Planeación'), (2, 'Comercial')) as v(orden, nombre)
+cross join (select id from public.formatos_categoria where nombre = 'G. Estratégica') c;
+
+-- Dentro de una categoría se puede navegar directo a las subcarpetas
+-- "documentos"/"formatos", o (si el app admin las creó) primero pasar
+-- por una subcategoría propia de esa categoría (ej. "Planeación",
+-- "Comercial" dentro de "G. Estratégica") — cada subcategoría tiene
+-- también sus propias subcarpetas "documentos"/"formatos".
+create table public.formatos_subcategoria (
+  id uuid primary key default gen_random_uuid(),
+  categoria_id integer not null references public.formatos_categoria(id) on delete cascade,
+  orden integer not null default 0,
+  nombre text not null
+);
+
+alter table public.formatos_subcategoria enable row level security;
+
+create policy "Ver subcategorías de formatos si estoy logueado"
+  on public.formatos_subcategoria for select using (auth.uid() is not null);
+create policy "Crear subcategorías de formatos si soy app admin"
+  on public.formatos_subcategoria for insert with check (public.is_app_admin());
+create policy "Borrar subcategorías de formatos si soy app admin"
+  on public.formatos_subcategoria for delete using (public.is_app_admin());
+
+-- Dentro de cada categoría (o subcategoría) hay dos subcarpetas:
+-- "documentos" (archivo de referencia, cualquier tipo, se descarga
+-- tal cual) y "formatos" (Word/Excel con marcadores entre paréntesis,
+-- se puede generar la versión rellena para una empresa puntual).
 create table public.formatos_plantilla (
   id uuid primary key default gen_random_uuid(),
   categoria_id integer not null references public.formatos_categoria(id),
+  subcategoria_id uuid references public.formatos_subcategoria(id) on delete cascade,
   subcarpeta text not null default 'formatos' check (subcarpeta in ('documentos', 'formatos')),
   nombre_archivo text not null,
   ruta_storage text not null,
