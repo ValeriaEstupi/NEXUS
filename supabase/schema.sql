@@ -695,6 +695,31 @@ create policy "Subir evidencias si soy editor de la empresa"
 create policy "Borrar evidencias si soy editor de la empresa"
   on public.evidencias for delete using (public.is_empresa_editor(empresa_id));
 
+-- Formatos (Word/Excel) que alguien sube con marcadores entre
+-- paréntesis (ej. "(aquí va el nombre de la empresa)") y que NEXUS
+-- devuelve ya rellenados con los datos reales de esa empresa. El
+-- archivo resultante se guarda en el mismo bucket "evidencias", en la
+-- ruta "<empresa_id>/documentos/archivo" — reutiliza las mismas
+-- reglas de Storage de la migración 002 (no hace falta crear otro
+-- bucket).
+create table public.documentos_generados (
+  id uuid primary key default gen_random_uuid(),
+  empresa_id uuid not null references public.empresas(id) on delete cascade,
+  nombre_archivo text not null,
+  ruta_storage text not null,
+  subido_por uuid references public.profiles(id),
+  created_at timestamptz not null default now()
+);
+
+alter table public.documentos_generados enable row level security;
+
+create policy "Ver documentos generados de mis empresas"
+  on public.documentos_generados for select using (public.is_empresa_member(empresa_id));
+create policy "Subir documentos generados si soy editor de la empresa"
+  on public.documentos_generados for insert with check (public.is_empresa_editor(empresa_id));
+create policy "Borrar documentos generados si soy editor de la empresa"
+  on public.documentos_generados for delete using (public.is_empresa_editor(empresa_id));
+
 
 -- ---------------------------------------------------------------------
 -- 8) VEHÍCULOS (por empresa)

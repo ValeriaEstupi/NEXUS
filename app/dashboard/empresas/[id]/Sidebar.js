@@ -16,6 +16,7 @@ import {
   AlertTriangleIcon,
   CheckSquareIcon,
   BarChartIcon,
+  LayersIcon,
   SettingsIcon,
   ArrowLeftIcon,
 } from "@/app/dashboard/Icons";
@@ -38,6 +39,7 @@ export default function Sidebar({ empresaId, empresaNombre }) {
     { href: `${base}/incidentes`, label: "Incidentes", Icon: AlertTriangleIcon },
     { href: `${base}/plan-accion`, label: "Planes de acción", Icon: CheckSquareIcon },
     { href: `${base}/indicadores`, label: "Indicadores", Icon: BarChartIcon },
+    { href: `${base}/documentos`, label: "Formatos", Icon: LayersIcon },
     { href: `${base}/configuracion`, label: "Configuración", Icon: SettingsIcon },
   ];
 
