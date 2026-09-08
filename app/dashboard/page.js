@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { BuildingIcon, LayersIcon } from "./Icons";
+import { BuildingIcon } from "./Icons";
 import NewEmpresaForm from "./NewEmpresaForm";
 
 // Depende de a qué empresas pertenece quien mira (o todas, si es app
@@ -62,16 +62,6 @@ export default async function DashboardHome() {
           <p className="muted">Todavía no eres parte de ninguna empresa. Crea la primera abajo.</p>
         )}
       </section>
-
-      <Link href="/dashboard/formatos" className="biblioteca-card">
-        <LayersIcon size={22} />
-        <div>
-          <strong>Biblioteca de formatos</strong>
-          <span className="muted small">
-            Formatos maestros compartidos por todas las empresas, en 6 categorías.
-          </span>
-        </div>
-      </Link>
 
       {profile?.is_app_admin && (
         <section className="section-card">
