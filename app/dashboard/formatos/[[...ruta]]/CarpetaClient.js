@@ -89,6 +89,7 @@ export default function CarpetaClient({ carpetaId, rutaSegmentos, subcarpetas, a
         </div>
       )}
 
+      {carpetaId && (
       <section className="section-card">
         <h2>Archivos aquí</h2>
         {archivos.length > 0 ? (
@@ -130,6 +131,7 @@ export default function CarpetaClient({ carpetaId, rutaSegmentos, subcarpetas, a
           </form>
         )}
       </section>
+      )}
 
       {isAppAdmin && (
         <section className="section-card">
