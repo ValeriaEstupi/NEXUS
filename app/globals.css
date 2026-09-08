@@ -461,6 +461,34 @@ button.danger:hover {
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
 }
 
+.biblioteca-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px 22px;
+  margin-top: 20px;
+  text-decoration: none;
+  color: inherit;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.biblioteca-card:hover {
+  border-color: var(--primary);
+}
+
+.biblioteca-card strong {
+  display: block;
+  font-size: 0.95rem;
+}
+
+.biblioteca-card .muted {
+  display: block;
+  margin-top: 2px;
+}
+
 .section-card h2 {
   display: flex;
   align-items: center;
