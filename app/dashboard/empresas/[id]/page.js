@@ -24,20 +24,12 @@ export default async function EmpresaResumenPage({ params }) {
     { data: vehiculos },
     { data: conductores },
     { data: incidentesAbiertos },
+    { data: cumplimientos },
   ] = await Promise.all([
     supabase.from("empresas").select("razon_social").eq("id", empresaId).single(),
-    supabase
-      .from("requisitos_pesv")
-      .select("activo, cumplimiento_items(estado)")
-      .eq("empresa_id", empresaId),
-    supabase
-      .from("estandares_sgsst")
-      .select("activo, puntaje, cumplimiento_items(estado)")
-      .eq("empresa_id", empresaId),
-    supabase
-      .from("requisitos_iso")
-      .select("norma_id, activo, cumplimiento_items(estado)")
-      .eq("empresa_id", empresaId),
+    supabase.from("requisitos_pesv").select("id, activo").eq("empresa_id", empresaId),
+    supabase.from("estandares_sgsst").select("id, activo, puntaje").eq("empresa_id", empresaId),
+    supabase.from("requisitos_iso").select("id, norma_id, activo").eq("empresa_id", empresaId),
     supabase.from("normas_iso").select("id, codigo, nombre").order("orden"),
     supabase.from("vehiculos").select("id", { count: "exact", head: true }).eq("empresa_id", empresaId),
     supabase.from("conductores").select("id", { count: "exact", head: true }).eq("empresa_id", empresaId),
@@ -50,17 +42,33 @@ export default async function EmpresaResumenPage({ params }) {
       .select("fecha_vencimiento_licencia, fecha_vencimiento_examen_medico")
       .eq("empresa_id", empresaId),
     supabase.from("incidentes").select("id").eq("empresa_id", empresaId).neq("estado", "cerrado"),
+    // Por separado (no anidada dentro de cada catálogo) para no depender
+    // de que Supabase resuelva bien la relación anidada — se trae una
+    // sola vez y se cruza acá mismo por id.
+    supabase
+      .from("cumplimiento_items")
+      .select("requisito_pesv_id, estandar_sgsst_id, requisito_iso_id, estado")
+      .eq("empresa_id", empresaId),
   ]);
+
+  const estadoPorRequisitoPesv = {};
+  const estadoPorEstandar = {};
+  const estadoPorRequisitoIso = {};
+  (cumplimientos || []).forEach((c) => {
+    if (c.requisito_pesv_id) estadoPorRequisitoPesv[c.requisito_pesv_id] = c.estado;
+    if (c.estandar_sgsst_id) estadoPorEstandar[c.estandar_sgsst_id] = c.estado;
+    if (c.requisito_iso_id) estadoPorRequisitoIso[c.requisito_iso_id] = c.estado;
+  });
 
   const requisitosActivos = (requisitos || []).filter((r) => r.activo);
   const totalPesv = requisitosActivos.length;
-  const cumplidosPesv = requisitosActivos.filter((r) => r.cumplimiento_items?.[0]?.estado === "cumplido").length;
+  const cumplidosPesv = requisitosActivos.filter((r) => estadoPorRequisitoPesv[r.id] === "cumplido").length;
   const avancePesvGlobal = totalPesv > 0 ? Math.round((cumplidosPesv / totalPesv) * 100) : 0;
 
   const estandaresActivos = (estandares || []).filter((e) => e.activo);
   const puntajeAplicable = estandaresActivos.reduce((s, e) => s + Number(e.puntaje), 0);
   const puntajeObtenido = estandaresActivos
-    .filter((e) => e.cumplimiento_items?.[0]?.estado === "cumplido")
+    .filter((e) => estadoPorEstandar[e.id] === "cumplido")
     .reduce((s, e) => s + Number(e.puntaje), 0);
   const avanceSgsstGlobal = puntajeAplicable > 0 ? Math.round((puntajeObtenido / puntajeAplicable) * 100) : 0;
 
@@ -68,7 +76,7 @@ export default async function EmpresaResumenPage({ params }) {
   const avancePorNorma = {};
   for (const norma of normasIso || []) {
     const items = (requisitosIso || []).filter((r) => r.norma_id === norma.id && r.activo);
-    const cumplidos = items.filter((r) => r.cumplimiento_items?.[0]?.estado === "cumplido").length;
+    const cumplidos = items.filter((r) => estadoPorRequisitoIso[r.id] === "cumplido").length;
     avancePorNorma[norma.codigo] = items.length > 0 ? Math.round((cumplidos / items.length) * 100) : 0;
   }
 

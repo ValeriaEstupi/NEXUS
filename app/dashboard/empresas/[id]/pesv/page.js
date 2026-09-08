@@ -17,7 +17,7 @@ export default async function PesvPage({ params }) {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [{ role, canTrack, canEdit, canDelete }, { data: pilares }, { data: fases }, { data: requisitos }, { data: profiles }] =
+  const [{ role, canTrack, canEdit, canDelete }, { data: pilares }, { data: fases }, { data: requisitos }, { data: profiles }, { data: cumplimientos }] =
     await Promise.all([
       getEmpresaRole(supabase, empresaId, user.id),
       supabase
@@ -28,18 +28,30 @@ export default async function PesvPage({ params }) {
       supabase.from("fases_phva").select("id, orden, nombre").order("orden"),
       supabase
         .from("requisitos_pesv")
-        .select(
-          "id, pilar_id, fase_id, codigo, descripcion, fuente_normativa, orden, activo, cumplimiento_items(id, estado, responsable_id, fecha_limite, observaciones, evidencias(id, nombre_archivo, ruta_storage))"
-        )
+        .select("id, pilar_id, fase_id, codigo, descripcion, fuente_normativa, orden, activo")
         .eq("empresa_id", empresaId)
         .order("orden"),
       supabase.from("profiles").select("id, full_name, email").order("full_name"),
+      // Se trae por separado (en vez de anidada dentro de la consulta de
+      // arriba) porque la relación anidada podía no resolverse bien en
+      // algunos proyectos — con dos consultas planas y uniéndolas acá
+      // mismo evitamos depender de eso.
+      supabase
+        .from("cumplimiento_items")
+        .select("id, requisito_pesv_id, estado, responsable_id, fecha_limite, observaciones, evidencias(id, nombre_archivo, ruta_storage)")
+        .eq("empresa_id", empresaId)
+        .eq("tipo", "pesv"),
     ]);
+
+  const cumplimientoPorRequisito = {};
+  (cumplimientos || []).forEach((c) => {
+    cumplimientoPorRequisito[c.requisito_pesv_id] = c;
+  });
 
   // Aplana requisito + su único cumplimiento_item, y les pega enlaces
   // de descarga temporales a las evidencias.
   const flatItems = (requisitos || []).map((r) => ({
-    ...r.cumplimiento_items?.[0],
+    ...cumplimientoPorRequisito[r.id],
     _requisito: r,
   }));
   const withUrls = await withSignedUrls(supabase, flatItems);

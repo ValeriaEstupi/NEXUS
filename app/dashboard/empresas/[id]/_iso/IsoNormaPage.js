@@ -16,20 +16,29 @@ export default async function IsoNormaPage({ empresaId, normaCodigo, Icon, discl
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [{ canTrack, canEdit, canDelete }, { data: norma }, { data: fases }, { data: requisitos }, { data: profiles }] =
+  const [{ canTrack, canEdit, canDelete }, { data: norma }, { data: fases }, { data: requisitos }, { data: profiles }, { data: cumplimientos }] =
     await Promise.all([
       getEmpresaRole(supabase, empresaId, user.id),
       supabase.from("normas_iso").select("id, codigo, nombre").eq("codigo", normaCodigo).single(),
       supabase.from("fases_phva").select("id, orden, nombre").order("orden"),
       supabase
         .from("requisitos_iso")
-        .select(
-          "id, norma_id, fase_id, codigo, descripcion, orden, activo, cumplimiento_items(id, estado, responsable_id, fecha_limite, observaciones, evidencias(id, nombre_archivo, ruta_storage))"
-        )
+        .select("id, norma_id, fase_id, codigo, descripcion, orden, activo")
         .eq("empresa_id", empresaId)
         .order("orden"),
       supabase.from("profiles").select("id, full_name, email").order("full_name"),
+      // Por separado (no anidada) por la misma razón que en PESV/SG-SST.
+      supabase
+        .from("cumplimiento_items")
+        .select("id, requisito_iso_id, estado, responsable_id, fecha_limite, observaciones, evidencias(id, nombre_archivo, ruta_storage)")
+        .eq("empresa_id", empresaId)
+        .eq("tipo", "iso"),
     ]);
+
+  const cumplimientoPorRequisito = {};
+  (cumplimientos || []).forEach((c) => {
+    cumplimientoPorRequisito[c.requisito_iso_id] = c;
+  });
 
   if (!norma) {
     return (
@@ -44,7 +53,7 @@ export default async function IsoNormaPage({ empresaId, normaCodigo, Icon, discl
 
   const itemsDeEstaNorma = (requisitos || []).filter((r) => r.norma_id === norma.id);
   const flatItems = itemsDeEstaNorma.map((r) => ({
-    ...r.cumplimiento_items?.[0],
+    ...cumplimientoPorRequisito[r.id],
     _requisito: r,
   }));
   const withUrls = await withSignedUrls(supabase, flatItems);

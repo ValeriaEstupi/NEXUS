@@ -16,21 +16,31 @@ export default async function SgsstPage({ params }) {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [{ canTrack, canEdit, canDelete }, { data: fases }, { data: estandares }, { data: profiles }] = await Promise.all([
+  const [{ canTrack, canEdit, canDelete }, { data: fases }, { data: estandares }, { data: profiles }, { data: cumplimientos }] = await Promise.all([
     getEmpresaRole(supabase, empresaId, user.id),
     supabase.from("fases_phva").select("id, orden, nombre").order("orden"),
     supabase
       .from("estandares_sgsst")
-      .select(
-        "id, fase_id, componente, codigo, descripcion, puntaje, orden, activo, cumplimiento_items(id, estado, responsable_id, fecha_limite, observaciones, evidencias(id, nombre_archivo, ruta_storage))"
-      )
+      .select("id, fase_id, componente, codigo, descripcion, puntaje, orden, activo")
       .eq("empresa_id", empresaId)
       .order("orden"),
     supabase.from("profiles").select("id, full_name, email").order("full_name"),
+    // Por separado (no anidada) por la misma razón que en PESV: evita
+    // depender de que la relación anidada se resuelva bien.
+    supabase
+      .from("cumplimiento_items")
+      .select("id, estandar_sgsst_id, estado, responsable_id, fecha_limite, observaciones, evidencias(id, nombre_archivo, ruta_storage)")
+      .eq("empresa_id", empresaId)
+      .eq("tipo", "sgsst"),
   ]);
 
+  const cumplimientoPorEstandar = {};
+  (cumplimientos || []).forEach((c) => {
+    cumplimientoPorEstandar[c.estandar_sgsst_id] = c;
+  });
+
   const flatItems = (estandares || []).map((e) => ({
-    ...e.cumplimiento_items?.[0],
+    ...cumplimientoPorEstandar[e.id],
     _estandar: e,
   }));
   const withUrls = await withSignedUrls(supabase, flatItems);
