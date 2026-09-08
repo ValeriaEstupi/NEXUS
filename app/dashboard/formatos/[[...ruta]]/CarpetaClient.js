@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import {
   crearCarpeta,
   renombrarCarpeta,
+  moverCarpeta,
   deleteCarpeta,
   subirArchivoBiblioteca,
   deleteArchivoBiblioteca,
@@ -68,6 +69,8 @@ export default function CarpetaClient({ carpetaId, nombreActual, rutaSegmentos, 
               isAppAdmin={isAppAdmin}
               parentId={carpetaId}
               setError={setError}
+              esPrimera={i === 0}
+              esUltima={i === subcarpetas.length - 1}
             />
           ))}
         </div>
@@ -141,13 +144,21 @@ export default function CarpetaClient({ carpetaId, nombreActual, rutaSegmentos, 
   );
 }
 
-function SubcarpetaCard({ carpeta, href, banner, isAppAdmin, parentId, setError }) {
+function SubcarpetaCard({ carpeta, href, banner, isAppAdmin, parentId, setError, esPrimera, esUltima }) {
   const [renombrando, setRenombrando] = useState(false);
+  const [moviendo, setMoviendo] = useState(false);
 
   async function handleBorrar() {
     if (!confirm("¿Borrar esta subcarpeta? Se borra también todo lo que tenga dentro.")) return;
     const res = await deleteCarpeta(carpeta.id, parentId);
     if (res?.error) setError(res.error);
+  }
+
+  async function handleMover(direccion) {
+    setMoviendo(true);
+    const res = await moverCarpeta(carpeta.id, direccion, parentId);
+    if (res?.error) setError(res.error);
+    setMoviendo(false);
   }
 
   return (
@@ -175,6 +186,26 @@ function SubcarpetaCard({ carpeta, href, banner, isAppAdmin, parentId, setError 
       )}
       {isAppAdmin && !renombrando && (
         <div className="actions-row" style={{ marginTop: 4 }}>
+          <button
+            type="button"
+            className="secondary"
+            style={{ padding: "2px 6px", fontSize: "0.7rem" }}
+            disabled={esPrimera || moviendo}
+            onClick={() => handleMover("arriba")}
+            title="Subir"
+          >
+            ▲
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            style={{ padding: "2px 6px", fontSize: "0.7rem" }}
+            disabled={esUltima || moviendo}
+            onClick={() => handleMover("abajo")}
+            title="Bajar"
+          >
+            ▼
+          </button>
           <button
             type="button"
             className="secondary"

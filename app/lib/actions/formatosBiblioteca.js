@@ -74,6 +74,49 @@ export async function renombrarCarpeta(id, nuevoNombre, parentId) {
   return { success: true };
 }
 
+// Cambia el orden de una subcarpeta un puesto hacia arriba o hacia
+// abajo entre sus hermanas (misma carpeta padre), intercambiando su
+// "orden" con la vecina. Solo el app admin.
+export async function moverCarpeta(id, direccion, parentId) {
+  const supabase = createClient();
+  const user = await requireUser(supabase);
+
+  if (!(await requireAppAdmin(supabase, user))) {
+    return { error: "Solo el app admin puede reordenar la biblioteca." };
+  }
+
+  let query = supabase.from("formatos_carpeta").select("id, orden").order("orden").order("id");
+  query = parentId ? query.eq("parent_id", parentId) : query.is("parent_id", null);
+  const { data: hermanas, error: fetchError } = await query;
+
+  if (fetchError) {
+    return { error: fetchError.message };
+  }
+
+  const indice = (hermanas || []).findIndex((c) => c.id === id);
+  if (indice === -1) return { error: "No se encontró esa carpeta." };
+
+  const vecinoIndice = direccion === "arriba" ? indice - 1 : indice + 1;
+  if (vecinoIndice < 0 || vecinoIndice >= hermanas.length) {
+    return { success: true }; // ya está en la punta, no hay nada que mover
+  }
+
+  const actual = hermanas[indice];
+  const vecino = hermanas[vecinoIndice];
+
+  const [{ error: e1 }, { error: e2 }] = await Promise.all([
+    supabase.from("formatos_carpeta").update({ orden: vecino.orden }).eq("id", actual.id),
+    supabase.from("formatos_carpeta").update({ orden: actual.orden }).eq("id", vecino.id),
+  ]);
+
+  if (e1 || e2) {
+    return { error: (e1 || e2).message };
+  }
+
+  revalidatePath(rutaCarpeta(parentId));
+  return { success: true };
+}
+
 export async function deleteCarpeta(id, parentId) {
   const supabase = createClient();
   const user = await requireUser(supabase);
