@@ -189,12 +189,16 @@ export async function subirArchivoBiblioteca(formData) {
     };
   }
 
-  const { error: insertError } = await supabase.from("formatos_archivo").insert({
-    carpeta_id: carpetaId,
-    nombre_archivo: nombreOriginal,
-    ruta_storage: rutaStorage,
-    subido_por: user.id,
-  });
+  const { data: nuevoArchivo, error: insertError } = await supabase
+    .from("formatos_archivo")
+    .insert({
+      carpeta_id: carpetaId,
+      nombre_archivo: nombreOriginal,
+      ruta_storage: rutaStorage,
+      subido_por: user.id,
+    })
+    .select("id")
+    .single();
 
   if (insertError) {
     return { error: insertError.message };
@@ -206,7 +210,12 @@ export async function subirArchivoBiblioteca(formData) {
   if (esArchivoFormato(nombreOriginal)) {
     try {
       const bytes = await file.arrayBuffer();
-      await generarFormatoParaTodasLasEmpresas(supabase, user.id, { nombreOriginal, ext, bytes });
+      await generarFormatoParaTodasLasEmpresas(supabase, user.id, {
+        archivoId: nuevoArchivo?.id,
+        nombreOriginal,
+        ext,
+        bytes,
+      });
     } catch {
       // No hace fallar la subida del formato en sí si esto falla.
     }

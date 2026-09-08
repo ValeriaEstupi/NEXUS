@@ -52,8 +52,10 @@ export async function generarDocumento(formData) {
 }
 
 // Genera, para una empresa puntual, la versión rellena de un archivo
-// de la biblioteca compartida (ver formatosBiblioteca.js).
-export async function generarDesdeBiblioteca(archivoId, empresaId) {
+// de la biblioteca compartida (ver formatosBiblioteca.js). "rutaActual"
+// es la carpeta desde donde se llamó (para refrescar justo esa
+// pantalla); si no viene, se refresca la raíz de "Formatos".
+export async function generarDesdeBiblioteca(archivoId, empresaId, rutaActual) {
   const supabase = createClient();
   const user = await requireUser(supabase);
 
@@ -104,8 +106,12 @@ export async function generarDesdeBiblioteca(archivoId, empresaId) {
     nombreOriginal: plantilla.nombre_archivo,
     ext,
     buffer,
+    origenArchivoId: archivoId,
   });
-  if (!res.error) revalidatePath(`/dashboard/empresas/${empresaId}/documentos`);
+  if (!res.error) {
+    revalidatePath(`/dashboard/empresas/${empresaId}/documentos`);
+    if (rutaActual) revalidatePath(`/dashboard/empresas/${empresaId}/documentos/${rutaActual}`);
+  }
   return res;
 }
 
@@ -125,7 +131,7 @@ export async function getDocumentoUrl(rutaStorage) {
   return { url: data.signedUrl };
 }
 
-export async function deleteDocumentoGenerado(id, rutaStorage, empresaId) {
+export async function deleteDocumentoGenerado(id, rutaStorage, empresaId, rutaActual) {
   const supabase = createClient();
   await requireUser(supabase);
 
@@ -137,6 +143,9 @@ export async function deleteDocumentoGenerado(id, rutaStorage, empresaId) {
     return { error: error.message };
   }
 
-  if (empresaId) revalidatePath(`/dashboard/empresas/${empresaId}/documentos`);
+  if (empresaId) {
+    revalidatePath(`/dashboard/empresas/${empresaId}/documentos`);
+    if (rutaActual) revalidatePath(`/dashboard/empresas/${empresaId}/documentos/${rutaActual}`);
+  }
   return { success: true };
 }

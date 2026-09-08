@@ -695,31 +695,6 @@ create policy "Subir evidencias si soy editor de la empresa"
 create policy "Borrar evidencias si soy editor de la empresa"
   on public.evidencias for delete using (public.is_empresa_editor(empresa_id));
 
--- Formatos (Word/Excel) que alguien sube con marcadores entre
--- paréntesis (ej. "(aquí va el nombre de la empresa)") y que NEXUS
--- devuelve ya rellenados con los datos reales de esa empresa. El
--- archivo resultante se guarda en el mismo bucket "evidencias", en la
--- ruta "<empresa_id>/documentos/archivo" — reutiliza las mismas
--- reglas de Storage de la migración 002 (no hace falta crear otro
--- bucket).
-create table public.documentos_generados (
-  id uuid primary key default gen_random_uuid(),
-  empresa_id uuid not null references public.empresas(id) on delete cascade,
-  nombre_archivo text not null,
-  ruta_storage text not null,
-  subido_por uuid references public.profiles(id),
-  created_at timestamptz not null default now()
-);
-
-alter table public.documentos_generados enable row level security;
-
-create policy "Ver documentos generados de mis empresas"
-  on public.documentos_generados for select using (public.is_empresa_member(empresa_id));
-create policy "Subir documentos generados si soy editor de la empresa"
-  on public.documentos_generados for insert with check (public.is_empresa_editor(empresa_id));
-create policy "Borrar documentos generados si soy editor de la empresa"
-  on public.documentos_generados for delete using (public.is_empresa_editor(empresa_id));
-
 -- Biblioteca de formatos MAESTROS: un árbol de carpetas genérico y
 -- compartido por TODA la plataforma (no se duplica por empresa, a
 -- diferencia de "documentos_generados" arriba). Cualquier carpeta
@@ -800,6 +775,35 @@ begin
     (v_plan_doc, 7, 'Reglamentos'),
     (v_plan_doc, 8, 'Códigos');
 end $$;
+
+-- Documento ya relleno con los datos de UNA empresa puntual, generado
+-- a partir de un formato propio o de un archivo de la biblioteca (ver
+-- origen_archivo_id). El archivo resultante se guarda en el mismo
+-- bucket "evidencias", en la ruta "<empresa_id>/documentos/archivo" —
+-- reutiliza las mismas reglas de Storage de la migración 002 (no hace
+-- falta crear otro bucket).
+create table public.documentos_generados (
+  id uuid primary key default gen_random_uuid(),
+  empresa_id uuid not null references public.empresas(id) on delete cascade,
+  -- Si este documento viene de un archivo de la biblioteca compartida
+  -- (y no de un "Subir un formato propio" suelto), acá queda el
+  -- vínculo — así la carpeta de la empresa puede saber, para cada
+  -- archivo de la biblioteca, si ya tiene su propia versión generada.
+  origen_archivo_id uuid references public.formatos_archivo(id) on delete set null,
+  nombre_archivo text not null,
+  ruta_storage text not null,
+  subido_por uuid references public.profiles(id),
+  created_at timestamptz not null default now()
+);
+
+alter table public.documentos_generados enable row level security;
+
+create policy "Ver documentos generados de mis empresas"
+  on public.documentos_generados for select using (public.is_empresa_member(empresa_id));
+create policy "Subir documentos generados si soy editor de la empresa"
+  on public.documentos_generados for insert with check (public.is_empresa_editor(empresa_id));
+create policy "Borrar documentos generados si soy editor de la empresa"
+  on public.documentos_generados for delete using (public.is_empresa_editor(empresa_id));
 
 
 -- ---------------------------------------------------------------------

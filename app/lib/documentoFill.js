@@ -38,11 +38,15 @@ export async function rellenarArchivo(bytes, empresa) {
 
 // Guarda el resultado ya relleno en el bucket "evidencias" (ruta
 // "<empresa_id>/documentos/...") y registra la fila en
-// documentos_generados, para que quede listado en esa empresa. No
-// llama revalidatePath acá — lo hace quien invoque esta función,
-// porque a veces se generan varios documentos seguidos (una empresa
-// nueva, o subir un formato a la biblioteca) y no hace falta repetirlo.
-export async function guardarDocumentoGenerado(supabase, { empresaId, userId, nombreOriginal, ext, buffer }) {
+// documentos_generados, para que quede listado en esa empresa (y, si
+// viene de la biblioteca, vinculado a su archivo de origen). No llama
+// revalidatePath acá — lo hace quien invoque esta función, porque a
+// veces se generan varios documentos seguidos (una empresa nueva, o
+// subir un formato a la biblioteca) y no hace falta repetirlo.
+export async function guardarDocumentoGenerado(
+  supabase,
+  { empresaId, userId, nombreOriginal, ext, buffer, origenArchivoId }
+) {
   const rutaStorage = `${empresaId}/documentos/${Date.now()}-${sanitizarNombreArchivo(nombreOriginal)}`;
   const { error: uploadError } = await supabase.storage
     .from("evidencias")
@@ -54,6 +58,7 @@ export async function guardarDocumentoGenerado(supabase, { empresaId, userId, no
 
   const { error: insertError } = await supabase.from("documentos_generados").insert({
     empresa_id: empresaId,
+    origen_archivo_id: origenArchivoId || null,
     nombre_archivo: nombreOriginal,
     ruta_storage: rutaStorage,
     subido_por: userId,
@@ -71,7 +76,7 @@ export async function guardarDocumentoGenerado(supabase, { empresaId, userId, no
 // plataforma (no hay que entrar empresa por empresa a darle
 // "Generar"). Es "best effort": si una empresa puntual falla, sigue
 // con las demás — nunca hace fallar la subida del formato en sí.
-export async function generarFormatoParaTodasLasEmpresas(supabase, userId, { nombreOriginal, ext, bytes }) {
+export async function generarFormatoParaTodasLasEmpresas(supabase, userId, { archivoId, nombreOriginal, ext, bytes }) {
   const { data: empresas } = await supabase
     .from("empresas")
     .select("id, razon_social, nit, numero_vehiculos, numero_trabajadores, nivel_riesgo_arl");
@@ -85,6 +90,7 @@ export async function generarFormatoParaTodasLasEmpresas(supabase, userId, { nom
         nombreOriginal,
         ext,
         buffer,
+        origenArchivoId: archivoId,
       });
     } catch {
       // Sigue con las demás empresas aunque una falle.
@@ -96,7 +102,7 @@ export async function generarFormatoParaTodasLasEmpresas(supabase, userId, { nom
 // rellena de TODOS los formatos Word/Excel que ya existan en la
 // biblioteca compartida (en cualquier carpeta). También "best effort".
 export async function generarBibliotecaParaEmpresa(supabase, userId, empresa) {
-  const { data: archivos } = await supabase.from("formatos_archivo").select("nombre_archivo, ruta_storage");
+  const { data: archivos } = await supabase.from("formatos_archivo").select("id, nombre_archivo, ruta_storage");
 
   for (const archivo of archivos || []) {
     const ext = extensionDe(archivo.nombre_archivo);
@@ -112,6 +118,7 @@ export async function generarBibliotecaParaEmpresa(supabase, userId, empresa) {
         nombreOriginal: archivo.nombre_archivo,
         ext,
         buffer,
+        origenArchivoId: archivo.id,
       });
     } catch {
       // Sigue con los demás archivos aunque uno falle.
