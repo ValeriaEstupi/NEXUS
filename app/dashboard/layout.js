@@ -1,7 +1,8 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import LogoutButton from "./LogoutButton";
-import { ShieldIcon } from "./Icons";
+import { ShieldIcon, LayersIcon } from "./Icons";
 
 // Todo lo que hay bajo /dashboard depende de quién mira (sus empresas,
 // sus datos) — nunca debe quedar guardado en caché para servirse igual
@@ -30,8 +31,13 @@ export default async function DashboardLayout({ children }) {
   return (
     <>
       <div className="top-bar">
-        <div className="brand">
-          <span className="brand-mark"><ShieldIcon size={20} /></span> NEXUS
+        <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
+          <div className="brand">
+            <span className="brand-mark"><ShieldIcon size={20} /></span> NEXUS
+          </div>
+          <Link href="/dashboard/formatos" className="top-bar-link">
+            <LayersIcon size={16} /> Biblioteca de formatos
+          </Link>
         </div>
         <div className="user-chip">
           <div className="user-avatar">{initial}</div>

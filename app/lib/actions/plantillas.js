@@ -11,12 +11,61 @@ const TIPOS_SOPORTADOS = {
   xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 };
 
-// Sube un formato (Word o Excel) con marcadores entre paréntesis
-// (ej. "(aquí va el nombre de la empresa)") y devuelve, ya guardado,
-// el mismo archivo con esos marcadores reemplazados por los datos
-// reales de la empresa. Un .docx/.xlsx es, por dentro, un .zip con
-// varios archivos .xml — se abre, se reemplaza el texto en cada uno
-// y se vuelve a comprimir, sin tocar el resto del formato/diseño.
+function extensionDe(nombreArchivo) {
+  return (nombreArchivo || "").split(".").pop()?.toLowerCase();
+}
+
+// Abre un .docx/.xlsx (por dentro es un .zip de archivos .xml),
+// reemplaza los marcadores entre paréntesis en cada .xml con los
+// datos de la empresa, y devuelve el archivo final ya comprimido —
+// usado tanto al subir un formato propio como al generar uno desde la
+// biblioteca compartida.
+async function rellenarArchivo(bytes, empresa) {
+  const zip = await JSZip.loadAsync(bytes);
+  const nombresXml = Object.keys(zip.files).filter((n) => n.endsWith(".xml"));
+  for (const nombre of nombresXml) {
+    const entry = zip.files[nombre];
+    if (entry.dir) continue;
+    const contenido = await entry.async("string");
+    const relleno = rellenarPlaceholders(contenido, empresa);
+    if (relleno !== contenido) {
+      zip.file(nombre, relleno);
+    }
+  }
+  return zip.generateAsync({ type: "nodebuffer" });
+}
+
+// Guarda el resultado ya relleno en el bucket "evidencias" (ruta
+// "<empresa_id>/documentos/...") y registra la fila en
+// documentos_generados, para que quede listado en la empresa.
+async function guardarDocumentoGenerado(supabase, { empresaId, userId, nombreOriginal, ext, buffer }) {
+  const rutaStorage = `${empresaId}/documentos/${Date.now()}-${nombreOriginal}`;
+  const { error: uploadError } = await supabase.storage
+    .from("evidencias")
+    .upload(rutaStorage, buffer, { contentType: TIPOS_SOPORTADOS[ext] });
+
+  if (uploadError) {
+    return { error: uploadError.message };
+  }
+
+  const { error: insertError } = await supabase.from("documentos_generados").insert({
+    empresa_id: empresaId,
+    nombre_archivo: nombreOriginal,
+    ruta_storage: rutaStorage,
+    subido_por: userId,
+  });
+
+  if (insertError) {
+    return { error: insertError.message };
+  }
+
+  revalidatePath(`/dashboard/empresas/${empresaId}/documentos`);
+  return { success: true };
+}
+
+// Sube un formato propio (Word o Excel) con marcadores entre
+// paréntesis y devuelve, ya guardado, el mismo archivo relleno con
+// los datos de esta empresa.
 export async function generarDocumento(formData) {
   const supabase = createClient();
   const user = await requireUser(supabase);
@@ -32,7 +81,7 @@ export async function generarDocumento(formData) {
   }
 
   const nombreOriginal = file.name || "documento";
-  const ext = nombreOriginal.split(".").pop()?.toLowerCase();
+  const ext = extensionDe(nombreOriginal);
   if (!TIPOS_SOPORTADOS[ext]) {
     return { error: "Por ahora solo se pueden rellenar formatos de Word (.docx) o Excel (.xlsx)." };
   }
@@ -47,49 +96,71 @@ export async function generarDocumento(formData) {
     return { error: "No se pudo leer la información de la empresa." };
   }
 
-  let zip;
+  let buffer;
   try {
     const bytes = await file.arrayBuffer();
-    zip = await JSZip.loadAsync(bytes);
+    buffer = await rellenarArchivo(bytes, empresa);
   } catch {
     return { error: "No se pudo abrir el archivo. ¿Es un .docx/.xlsx real (no un archivo renombrado)?" };
   }
 
-  const nombresXml = Object.keys(zip.files).filter((n) => n.endsWith(".xml"));
-  for (const nombre of nombresXml) {
-    const entry = zip.files[nombre];
-    if (entry.dir) continue;
-    const contenido = await entry.async("string");
-    const relleno = rellenarPlaceholders(contenido, empresa);
-    if (relleno !== contenido) {
-      zip.file(nombre, relleno);
-    }
+  return guardarDocumentoGenerado(supabase, { empresaId, userId: user.id, nombreOriginal, ext, buffer });
+}
+
+// Genera, para una empresa puntual, la versión rellena de una
+// plantilla de la biblioteca compartida (ver formatosBiblioteca.js).
+export async function generarDesdeBiblioteca(plantillaId, empresaId) {
+  const supabase = createClient();
+  const user = await requireUser(supabase);
+
+  if (!plantillaId || !empresaId) {
+    return { error: "Falta la plantilla o la empresa." };
   }
 
-  const bufferFinal = await zip.generateAsync({ type: "nodebuffer" });
+  const [{ data: plantilla, error: plantillaError }, { data: empresa, error: empresaError }] = await Promise.all([
+    supabase.from("formatos_plantilla").select("nombre_archivo, ruta_storage").eq("id", plantillaId).single(),
+    supabase
+      .from("empresas")
+      .select("razon_social, nit, numero_vehiculos, numero_trabajadores, nivel_riesgo_arl")
+      .eq("id", empresaId)
+      .single(),
+  ]);
 
-  const rutaStorage = `${empresaId}/documentos/${Date.now()}-${nombreOriginal}`;
-  const { error: uploadError } = await supabase.storage
-    .from("evidencias")
-    .upload(rutaStorage, bufferFinal, { contentType: TIPOS_SOPORTADOS[ext] });
-
-  if (uploadError) {
-    return { error: uploadError.message };
+  if (plantillaError || !plantilla) {
+    return { error: "No se encontró esa plantilla en la biblioteca." };
+  }
+  if (empresaError || !empresa) {
+    return { error: "No se pudo leer la información de la empresa." };
   }
 
-  const { error: insertError } = await supabase.from("documentos_generados").insert({
-    empresa_id: empresaId,
-    nombre_archivo: nombreOriginal,
-    ruta_storage: rutaStorage,
-    subido_por: user.id,
+  const ext = extensionDe(plantilla.nombre_archivo);
+  if (!TIPOS_SOPORTADOS[ext]) {
+    return { error: "Ese archivo de la biblioteca no es un .docx/.xlsx soportado." };
+  }
+
+  const { data: descarga, error: descargaError } = await supabase.storage
+    .from("formatos")
+    .download(plantilla.ruta_storage);
+
+  if (descargaError || !descarga) {
+    return { error: descargaError?.message || "No se pudo descargar la plantilla de la biblioteca." };
+  }
+
+  let buffer;
+  try {
+    const bytes = await descarga.arrayBuffer();
+    buffer = await rellenarArchivo(bytes, empresa);
+  } catch {
+    return { error: "No se pudo procesar esa plantilla — puede estar dañada." };
+  }
+
+  return guardarDocumentoGenerado(supabase, {
+    empresaId,
+    userId: user.id,
+    nombreOriginal: plantilla.nombre_archivo,
+    ext,
+    buffer,
   });
-
-  if (insertError) {
-    return { error: insertError.message };
-  }
-
-  revalidatePath(`/dashboard/empresas/${empresaId}/documentos`);
-  return { success: true };
 }
 
 // Enlace de descarga temporal (10 minutos) para un documento generado

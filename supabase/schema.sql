@@ -720,6 +720,50 @@ create policy "Subir documentos generados si soy editor de la empresa"
 create policy "Borrar documentos generados si soy editor de la empresa"
   on public.documentos_generados for delete using (public.is_empresa_editor(empresa_id));
 
+-- Biblioteca de formatos MAESTROS: una sola carpeta, igual para TODAS
+-- las empresas de la plataforma (no se duplica por empresa, a
+-- diferencia de "documentos_generados" arriba). Organizada en 6
+-- categorías fijas. Solo el app admin la administra (subir/borrar),
+-- porque afecta a todas las empresas a la vez; cualquier persona
+-- logueada puede verla y usarla para generar SU propia versión
+-- rellenada dentro de una empresa puntual.
+create table public.formatos_categoria (
+  id serial primary key,
+  orden integer not null,
+  nombre text not null unique
+);
+
+alter table public.formatos_categoria enable row level security;
+
+create policy "Ver categorías de formatos si estoy logueado"
+  on public.formatos_categoria for select using (auth.uid() is not null);
+
+insert into public.formatos_categoria (orden, nombre) values
+  (1, 'G. Estratégica'),
+  (2, 'G. Operativa'),
+  (3, 'G. Integral'),
+  (4, 'G. Talento Humano'),
+  (5, 'G. Compras'),
+  (6, 'G. Mejora');
+
+create table public.formatos_plantilla (
+  id uuid primary key default gen_random_uuid(),
+  categoria_id integer not null references public.formatos_categoria(id),
+  nombre_archivo text not null,
+  ruta_storage text not null,
+  subido_por uuid references public.profiles(id),
+  created_at timestamptz not null default now()
+);
+
+alter table public.formatos_plantilla enable row level security;
+
+create policy "Ver plantillas de la biblioteca si estoy logueado"
+  on public.formatos_plantilla for select using (auth.uid() is not null);
+create policy "Subir plantillas a la biblioteca si soy app admin"
+  on public.formatos_plantilla for insert with check (public.is_app_admin());
+create policy "Borrar plantillas de la biblioteca si soy app admin"
+  on public.formatos_plantilla for delete using (public.is_app_admin());
+
 
 -- ---------------------------------------------------------------------
 -- 8) VEHÍCULOS (por empresa)

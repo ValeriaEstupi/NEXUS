@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getEmpresaRole } from "@/app/lib/empresaRole";
+import Link from "next/link";
 import { LayersIcon } from "@/app/dashboard/Icons";
 import DocumentosClient from "./DocumentosClient";
 
@@ -14,13 +15,18 @@ export default async function DocumentosPage({ params }) {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [{ canEdit }, { data: documentos }] = await Promise.all([
+  const [{ canEdit }, { data: documentos }, { data: categorias }, { data: plantillasBiblioteca }] = await Promise.all([
     getEmpresaRole(supabase, empresaId, user.id),
     supabase
       .from("documentos_generados")
       .select("id, nombre_archivo, ruta_storage, created_at")
       .eq("empresa_id", empresaId)
       .order("created_at", { ascending: false }),
+    supabase.from("formatos_categoria").select("id, orden, nombre").order("orden"),
+    supabase
+      .from("formatos_plantilla")
+      .select("id, categoria_id, nombre_archivo")
+      .order("nombre_archivo"),
   ]);
 
   const rutas = (documentos || []).map((d) => d.ruta_storage);
@@ -37,10 +43,11 @@ export default async function DocumentosPage({ params }) {
     <div className="page-body">
       <h1 className="icon-heading"><LayersIcon size={26} /> Formatos</h1>
       <p className="page-intro">
-        Sube un formato de Word o Excel con marcadores entre paréntesis
+        Genera el formato ya lleno con los datos de esta empresa a
+        partir de la <Link href="/dashboard/formatos">biblioteca compartida</Link>,
+        o sube tu propio Word/Excel con marcadores entre paréntesis
         (por ejemplo, "(aquí va el nombre de la empresa)" o "(aquí va el
-        NIT)") y te devolvemos el mismo archivo con esos marcadores ya
-        reemplazados por los datos de esta empresa.
+        NIT)").
       </p>
 
       <div className="disclaimer-box">
@@ -50,7 +57,13 @@ export default async function DocumentosPage({ params }) {
         — no toca el resto del texto ni el diseño del archivo.
       </div>
 
-      <DocumentosClient empresaId={empresaId} documentos={documentosConUrl} canEdit={canEdit} />
+      <DocumentosClient
+        empresaId={empresaId}
+        documentos={documentosConUrl}
+        canEdit={canEdit}
+        categorias={categorias || []}
+        plantillasBiblioteca={plantillasBiblioteca || []}
+      />
     </div>
   );
 }
