@@ -127,6 +127,11 @@ export default function ChecklistItem({ item, meta, profiles, pilares, fases, no
           {meta.descripcion}
           {meta.sub && <div className="muted small">{meta.sub}</div>}
           {meta.activo === false && <span className="badge badge-inactivo">Inactivo</span>}
+          {!item.id && (
+            <div style={{ color: "#b91c1c", fontSize: "0.7rem", fontWeight: 600 }}>
+              ⚠ DIAGNÓSTICO: sin fila de seguimiento (id de catálogo: {meta.id})
+            </div>
+          )}
         </td>
         <td>
           {canTrack ? (
