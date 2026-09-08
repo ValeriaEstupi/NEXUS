@@ -2,9 +2,15 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { LayersIcon, ArrowLeftIcon } from "@/app/dashboard/Icons";
-import BibliotecaClient from "./BibliotecaClient";
 
 export const dynamic = "force-dynamic";
+
+const BANNER_STYLES = [
+  "linear-gradient(135deg, #0f766e 0%, #134e4a 100%)",
+  "linear-gradient(135deg, #0e7490 0%, #164e63 100%)",
+  "linear-gradient(135deg, #059669 0%, #065f46 100%)",
+  "linear-gradient(135deg, #0891b2 0%, #155e75 100%)",
+];
 
 export default async function BibliotecaFormatosPage() {
   const supabase = createClient();
@@ -13,24 +19,10 @@ export default async function BibliotecaFormatosPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [{ data: profile }, { data: categorias }, { data: plantillas }] = await Promise.all([
-    supabase.from("profiles").select("is_app_admin").eq("id", user.id).single(),
-    supabase.from("formatos_categoria").select("id, orden, nombre").order("orden"),
-    supabase
-      .from("formatos_plantilla")
-      .select("id, categoria_id, subcarpeta, nombre_archivo, ruta_storage, created_at")
-      .order("created_at", { ascending: false }),
-  ]);
-
-  const rutas = (plantillas || []).map((p) => p.ruta_storage);
-  let urlPorRuta = {};
-  if (rutas.length > 0) {
-    const { data: firmadas } = await supabase.storage.from("formatos").createSignedUrls(rutas, 600);
-    (firmadas || []).forEach((f) => {
-      if (f?.signedUrl) urlPorRuta[f.path] = f.signedUrl;
-    });
-  }
-  const plantillasConUrl = (plantillas || []).map((p) => ({ ...p, url: urlPorRuta[p.ruta_storage] }));
+  const { data: categorias } = await supabase
+    .from("formatos_categoria")
+    .select("id, orden, nombre")
+    .order("orden");
 
   return (
     <div className="page-body">
@@ -39,21 +31,23 @@ export default async function BibliotecaFormatosPage() {
       </Link>
       <h1 className="icon-heading"><LayersIcon size={26} /> Biblioteca de formatos</h1>
       <p className="page-intro">
-        Una sola carpeta, igual para todas las empresas. Cada categoría
-        tiene dos subcarpetas: <strong>Documentos</strong> (cualquier
-        archivo, se descarga tal cual) y <strong>Formatos</strong>
-        (Word/Excel con marcadores — desde la pantalla "Formatos" de
-        cada empresa se genera la versión rellena con sus datos).
+        Una sola carpeta, igual para todas las empresas. Entra a una
+        categoría para ver sus subcarpetas de Documentos y Formatos.
       </p>
 
-      <div className="disclaimer-box">
-        ⚖️ En "Formatos", escribe los marcadores entre paréntesis en el
-        propio texto del documento — por ejemplo "(aquí va el nombre de
-        la empresa)" o "(aquí va el NIT)". Solo Word (.docx) y Excel
-        (.xlsx). "Documentos" acepta cualquier tipo de archivo.
+      <div className="group-card-grid">
+        {(categorias || []).map((cat, i) => (
+          <Link key={cat.id} href={`/dashboard/formatos/${cat.id}`} className="group-card">
+            <div className="group-card-banner" style={{ background: BANNER_STYLES[i % BANNER_STYLES.length] }}>
+              <span className="group-card-initial">{cat.orden}</span>
+              <LayersIcon size={20} className="group-card-icon" />
+            </div>
+            <div className="group-card-body">
+              <strong>{cat.nombre}</strong>
+            </div>
+          </Link>
+        ))}
       </div>
-
-      <BibliotecaClient categorias={categorias || []} plantillas={plantillasConUrl} isAppAdmin={!!profile?.is_app_admin} />
     </div>
   );
 }

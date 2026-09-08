@@ -71,11 +71,11 @@ export async function subirPlantillaBiblioteca(formData) {
     return { error: insertError.message };
   }
 
-  revalidatePath("/dashboard/formatos");
+  revalidatePath(`/dashboard/formatos/${categoriaId}/${subcarpeta}`);
   return { success: true };
 }
 
-export async function deletePlantillaBiblioteca(id, rutaStorage) {
+export async function deletePlantillaBiblioteca(id, rutaStorage, categoriaId, subcarpeta) {
   const supabase = createClient();
   const user = await requireUser(supabase);
 
@@ -91,6 +91,6 @@ export async function deletePlantillaBiblioteca(id, rutaStorage) {
     return { error: error.message };
   }
 
-  revalidatePath("/dashboard/formatos");
+  if (categoriaId && subcarpeta) revalidatePath(`/dashboard/formatos/${categoriaId}/${subcarpeta}`);
   return { success: true };
 }
