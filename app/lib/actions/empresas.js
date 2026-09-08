@@ -3,13 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "./_shared";
+import { generarBibliotecaParaEmpresa } from "@/app/lib/documentoFill";
 
 // Crea una empresa nueva: queda con su propia copia del catálogo del
 // PESV y del SG-SST (ver create_empresa() en supabase/schema.sql), y
 // quien la crea queda como "admin" de esa empresa automáticamente.
 export async function createEmpresa(data) {
   const supabase = createClient();
-  await requireUser(supabase);
+  const user = await requireUser(supabase);
 
   const razonSocial = (data.razonSocial || "").trim();
   if (!razonSocial) {
@@ -26,6 +27,15 @@ export async function createEmpresa(data) {
 
   if (error) {
     return { error: error.message };
+  }
+
+  // Además del catálogo de PESV/SG-SST/ISO/SARLAFT (que ya arma
+  // create_empresa() en la base de datos), le genera de una vez todos
+  // los formatos que ya existan en la biblioteca compartida.
+  try {
+    await generarBibliotecaParaEmpresa(supabase, user.id, nueva);
+  } catch {
+    // No hace fallar la creación de la empresa si esto falla.
   }
 
   revalidatePath("/dashboard");

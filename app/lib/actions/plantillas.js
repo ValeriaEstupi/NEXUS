@@ -1,67 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import JSZip from "jszip";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "./_shared";
-import { rellenarPlaceholders } from "@/app/lib/plantillasFill";
-
-const TIPOS_SOPORTADOS = {
-  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-};
-
-function extensionDe(nombreArchivo) {
-  return (nombreArchivo || "").split(".").pop()?.toLowerCase();
-}
-
-// Abre un .docx/.xlsx (por dentro es un .zip de archivos .xml),
-// reemplaza los marcadores entre paréntesis en cada .xml con los
-// datos de la empresa, y devuelve el archivo final ya comprimido —
-// usado tanto al subir un formato propio como al generar uno desde la
-// biblioteca compartida.
-async function rellenarArchivo(bytes, empresa) {
-  const zip = await JSZip.loadAsync(bytes);
-  const nombresXml = Object.keys(zip.files).filter((n) => n.endsWith(".xml"));
-  for (const nombre of nombresXml) {
-    const entry = zip.files[nombre];
-    if (entry.dir) continue;
-    const contenido = await entry.async("string");
-    const relleno = rellenarPlaceholders(contenido, empresa);
-    if (relleno !== contenido) {
-      zip.file(nombre, relleno);
-    }
-  }
-  return zip.generateAsync({ type: "nodebuffer" });
-}
-
-// Guarda el resultado ya relleno en el bucket "evidencias" (ruta
-// "<empresa_id>/documentos/...") y registra la fila en
-// documentos_generados, para que quede listado en la empresa.
-async function guardarDocumentoGenerado(supabase, { empresaId, userId, nombreOriginal, ext, buffer }) {
-  const rutaStorage = `${empresaId}/documentos/${Date.now()}-${nombreOriginal}`;
-  const { error: uploadError } = await supabase.storage
-    .from("evidencias")
-    .upload(rutaStorage, buffer, { contentType: TIPOS_SOPORTADOS[ext] });
-
-  if (uploadError) {
-    return { error: uploadError.message };
-  }
-
-  const { error: insertError } = await supabase.from("documentos_generados").insert({
-    empresa_id: empresaId,
-    nombre_archivo: nombreOriginal,
-    ruta_storage: rutaStorage,
-    subido_por: userId,
-  });
-
-  if (insertError) {
-    return { error: insertError.message };
-  }
-
-  revalidatePath(`/dashboard/empresas/${empresaId}/documentos`);
-  return { success: true };
-}
+import { rellenarArchivo, guardarDocumentoGenerado, extensionDe, TIPOS_SOPORTADOS } from "@/app/lib/documentoFill";
 
 // Sube un formato propio (Word o Excel) con marcadores entre
 // paréntesis y devuelve, ya guardado, el mismo archivo relleno con
@@ -104,7 +46,9 @@ export async function generarDocumento(formData) {
     return { error: "No se pudo abrir el archivo. ¿Es un .docx/.xlsx real (no un archivo renombrado)?" };
   }
 
-  return guardarDocumentoGenerado(supabase, { empresaId, userId: user.id, nombreOriginal, ext, buffer });
+  const res = await guardarDocumentoGenerado(supabase, { empresaId, userId: user.id, nombreOriginal, ext, buffer });
+  if (!res.error) revalidatePath(`/dashboard/empresas/${empresaId}/documentos`);
+  return res;
 }
 
 // Genera, para una empresa puntual, la versión rellena de un archivo
@@ -154,13 +98,15 @@ export async function generarDesdeBiblioteca(archivoId, empresaId) {
     return { error: "No se pudo procesar esa plantilla — puede estar dañada." };
   }
 
-  return guardarDocumentoGenerado(supabase, {
+  const res = await guardarDocumentoGenerado(supabase, {
     empresaId,
     userId: user.id,
     nombreOriginal: plantilla.nombre_archivo,
     ext,
     buffer,
   });
+  if (!res.error) revalidatePath(`/dashboard/empresas/${empresaId}/documentos`);
+  return res;
 }
 
 // Enlace de descarga temporal (10 minutos) para un documento generado

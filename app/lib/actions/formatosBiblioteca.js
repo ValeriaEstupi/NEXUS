@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "./_shared";
+import { generarFormatoParaTodasLasEmpresas } from "@/app/lib/documentoFill";
 
 const TIPOS_FORMATO = ["docx", "xlsx"];
 
@@ -198,6 +199,18 @@ export async function subirArchivoBiblioteca(formData) {
 
   if (insertError) {
     return { error: insertError.message };
+  }
+
+  // Si es un formato (Word/Excel con marcadores), lo genera de una
+  // vez en todas las empresas — no hace falta entrar empresa por
+  // empresa a darle "Generar para esta empresa".
+  if (carpeta?.es_formato) {
+    try {
+      const bytes = await file.arrayBuffer();
+      await generarFormatoParaTodasLasEmpresas(supabase, user.id, { nombreOriginal, ext, bytes });
+    } catch {
+      // No hace fallar la subida del formato en sí si esto falla.
+    }
   }
 
   revalidatePath(rutaCarpeta(carpetaId));
